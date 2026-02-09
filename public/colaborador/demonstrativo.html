@@ -19,10 +19,12 @@
   </div>
 
   <div id="sidebar-container"></div>
+<script>fetch("/components/sidebar_colaborador.html").then(r=>r.text()).then(h=>{document.getElementById("sidebar-container").innerHTML=h; if(window.initSidebarToggle) initSidebarToggle();});</script>
 
 
 <!-- SIDEBAR DO COLABORADOR -->
 <div id="sidebar-container"></div>
+<script>fetch("/components/sidebar_colaborador.html").then(r=>r.text()).then(h=>{document.getElementById("sidebar-container").innerHTML=h; if(window.initSidebarToggle) initSidebarToggle();});</script>
 
 
     
@@ -91,7 +93,7 @@
     <div class="filtros">
         <div>
             <label>Mês:</label>
-            <select id="quinzena"></select>
+            
         </div>
         <div>
             <label>Ano:</label>
