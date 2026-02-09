@@ -201,21 +201,7 @@
           <div class="col">
             <label>Desconto (R$)</label>
             <input class="input" id="desconto" type="number" step="0.01" min="0" placeholder="Ex: 120.00">
-          
-<div id="loanAutoBox" class="card" style="margin-top:10px;padding:12px;border:1px solid rgba(255,255,255,.08)">
-  <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
-    <div>
-      <div class="muted" style="font-size:12px">Desconto automático • Empréstimo</div>
-      <div id="loanAutoTxt" style="font-weight:700">Nenhuma parcela pendente para esta competência</div>
-      <div id="loanAutoSub" class="muted" style="font-size:12px"></div>
-    </div>
-    <div style="display:flex;align-items:center;gap:8px">
-      <label style="display:flex;align-items:center;gap:8px" class="muted"><input type="checkbox" id="chkAplicarEmp" checked> Aplicar no desconto</label>
-      <button type="button" class="btn btn-outline" id="btnRecalc">Recalcular total</button>
-    </div>
-  </div>
-</div>
-</div>
+          </div>
         </div>
 
         <label>Observações</label>
@@ -401,87 +387,7 @@
         msgSpan.style.color = "red";
       }
     });
-  
-
-// ===== EMPRÉSTIMO: DESCONTO AUTOMÁTICO POR COMPETÊNCIA (Opção B) =====
-function getQuinzenaFromDate(iso){
-  if(!iso) return null;
-  const d = Number(iso.split('-')[2]);
-  return d <= 15 ? 1 : 2;
-}
-
-async function loadParcelaCompetencia(usuarioId, isoDate){
-  const q = getQuinzenaFromDate(isoDate);
-  if(!q) return {total:0, parcelas:[], quinzena:null};
-  const [y,m] = isoDate.split('-');
-  const qs = new URLSearchParams({ usuario_id: usuarioId, ano:y, mes:String(Number(m)), quinzena:String(q) });
-  const r = await fetch('/api/emprestimos/parcelas?' + qs.toString());
-  if(!r.ok) return {total:0, parcelas:[], quinzena:q};
-  const all = await r.json();
-  const pend = all.filter(p=>p.status!=='aplicada');
-  const total = pend.reduce((s,p)=> s + Number(p.valor_parcela||0), 0);
-  return {total, parcelas:pend, quinzena:q};
-}
-
-async function previewEmprestimoAuto(){
-  const usuarioEl = document.getElementById('usuario_id') || document.getElementById('colaborador');
-  const dataEl = document.getElementById('data');
-  if(!usuarioEl || !dataEl) return;
-  const usuarioId = Number(usuarioEl.value);
-  const dataIso = dataEl.value;
-  if(!usuarioId || !dataIso) return;
-
-  const box = document.getElementById('loanAutoBox');
-  const txt = document.getElementById('loanAutoTxt');
-  const sub = document.getElementById('loanAutoSub');
-  if(!box||!txt||!sub) return;
-
-  const out = await loadParcelaCompetencia(usuarioId, dataIso);
-  if(out.total<=0){
-    txt.textContent = 'Nenhuma parcela pendente para esta competência';
-    sub.textContent = '';
-    box.dataset.autoEmp = '0';
-    return;
-  }
-  txt.textContent = `Parcela(s) pendente(s) na Q${out.quinzena} • Total: R$ ${out.total.toFixed(2).replace('.', ',')}`;
-  sub.textContent = out.parcelas.map(p=>`#${p.emprestimo_id} Parcela ${p.parcela_num}/${p.total_parcelas} (R$ ${Number(p.valor_parcela||0).toFixed(2).replace('.', ',')})`).join(' • ');
-  box.dataset.autoEmp = String(out.total);
-}
-
-function applyEmprestimoToDesconto(){
-  const chk = document.getElementById('chkAplicarEmp');
-  const box = document.getElementById('loanAutoBox');
-  const inpDesc = document.getElementById('desconto');
-  if(!chk||!box||!inpDesc) return;
-
-  const auto = Number(box.dataset.autoEmp||0);
-  const current = Number(String(inpDesc.value||'0').replace(',','.')) || 0;
-  const manualBase = ('manualBase' in inpDesc.dataset) ? Number(inpDesc.dataset.manualBase||0) : current;
-  inpDesc.dataset.manualBase = String(manualBase);
-
-  const final = chk.checked ? (manualBase + auto) : manualBase;
-  inpDesc.value = String(final.toFixed(2)).replace('.', ',');
-}
-
-function wireEmprestimoAuto(){
-  const dataEl = document.getElementById('data');
-  const usuarioEl = document.getElementById('usuario_id') || document.getElementById('colaborador');
-  const chk = document.getElementById('chkAplicarEmp');
-  const btn = document.getElementById('btnRecalc');
-
-  const run = async()=>{ await previewEmprestimoAuto(); applyEmprestimoToDesconto(); };
-  if(dataEl) dataEl.addEventListener('change', run);
-  if(usuarioEl) usuarioEl.addEventListener('change', run);
-  if(chk) chk.addEventListener('change', applyEmprestimoToDesconto);
-  if(btn) btn.addEventListener('click', ()=>{ applyEmprestimoToDesconto(); if(typeof calcular==='function') calcular(); });
-  run();
-}
-
-window.addEventListener('load', ()=>{
-  try{ wireEmprestimoAuto(); }catch(e){ console.warn(e); }
-});
-
-</script>
+  </script>
 
 </body>
 </html>

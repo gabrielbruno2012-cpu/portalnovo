@@ -1,279 +1,112 @@
 <!doctype html>
-<html lang="pt-BR">
+<html>
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Recebíveis</title>
-  <link rel="stylesheet" href="/css/style.css">
-  <script src="/js/ui-common.js"></script>
-  <script src="/js/dashboard-widgets.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
 
-  <script>
-    // compat: login admin → colaborador
-    if (localStorage.getItem('usuario') && !localStorage.getItem('user')) {
-      localStorage.setItem('user', localStorage.getItem('usuario'));
-    }
-  </script>
+<script>
+// Sync admin login -> collaborator login
+if (localStorage.getItem('usuario') && !localStorage.getItem('user')) {
+    localStorage.setItem('user', localStorage.getItem('usuario'));
+}
+</script>
 
-  <div class="mobile-topbar">
-    <button class="btn btn-secondary" id="btnMenu">Menu</button>
-    <div class="small" id="periodLabel">Recebíveis</div>
-    <button class="btn" onclick="logoutEverywhere()">Sair</button>
-  </div>
+<div id="sidebar-container"></div>
 
-  <div id="sidebar-container"></div>
-
-  <main class="main">
-    <div class="header-right">
-      <button class="btn" onclick="logoutEverywhere()">Logout</button>
-    </div>
-
-    <h1>Recebíveis • <span id="username">Colaborador</span></h1>
-
-    <div class="card">
-      <div class="filter-bar" id="filters">
-        <div class="field">
-          <div class="small">Período</div>
-          <select class="input" id="fPeriod"></select>
-        </div>
-        <div class="field">
-          <div class="small">Status</div>
-          <select class="input" id="fStatus">
-            <option value="all">Todos</option>
-            <option value="ok">Pago/Aprovado</option>
-            <option value="pendente">Pendente</option>
-            <option value="processando">Em processamento</option>
-            <option value="negado">Recusado</option>
-          </select>
-        </div>
-        <div class="field">
-          <div class="small">Tipo</div>
-          <select class="input" id="fType">
-            <option value="all">Todos</option>
-            <option value="recebivel">Recebível</option>
-            <option value="producao">Produção</option>
-          </select>
-        </div>
-        <div class="field" style="min-width:220px;">
-          <div class="small">Busca</div>
-          <input class="input" id="fSearch" placeholder="ID, tipo, status" />
-        </div>
-        <div style="display:flex; gap:10px;">
-          <button class="btn" id="btnApply">Aplicar</button>
-          <button class="btn btn-secondary" id="btnClear">Limpar</button>
-        </div>
-      </div>
-      <div class="small" id="activeFilters"></div>
-    </div>
-
-    <div class="top-cards" id="kpis">
-      <div class="top-card card kpi-card" data-kpi="ok" title="Clique para filtrar pago/aprovado">
-        <div class="small">Pago/Aprovado</div>
-        <div class="huge" id="kpi_ok">R$ 0,00</div>
-      </div>
-      <div class="top-card card kpi-card" data-kpi="pendente" title="Clique para filtrar pendentes">
-        <div class="small">Pendente</div>
-        <div class="huge" id="kpi_pendente">R$ 0,00</div>
-      </div>
-      <div class="top-card card kpi-card" data-kpi="processando" title="Clique para filtrar em processamento">
-        <div class="small">Processando</div>
-        <div class="huge" id="kpi_proc">R$ 0,00</div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
-        <h3 style="margin:0;">Pagos no período (por dia)</h3>
-        <button class="btn btn-secondary" id="btnExport">Exportar CSV</button>
-      </div>
-      <div style="height:260px; margin-top:10px;">
-        <canvas id="barChart"></canvas>
-      </div>
-      <div class="small" style="margin-top:8px;">Clique em uma barra para filtrar a lista por dia</div>
-    </div>
-
-    <div class="card">
-      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
-        <h3 style="margin:0;">Lançamentos</h3>
-        <div class="small" id="tableHint">Clique numa linha para ver detalhes</div>
-      </div>
-      <div id="recList" style="margin-top:10px;"></div>
-    </div>
-
-  </main>
+<main class="main">
+<h2>Recebíveis</h2>
+<div class="card" id="lista"></div>
+</main>
 
 <script>
-  fetch('/components/sidebar_colaborador.html')
-    .then(r => r.text())
-    .then(html => document.getElementById('sidebar-container').innerHTML = html);
+fetch('/components/sidebar.html')
+  .then(r => r.text())
+  .then(html => document.getElementById('sidebar-container').innerHTML = html);
 
-  document.getElementById('btnMenu').addEventListener('click', () => {
-    const sb = document.getElementById('sidebar');
-    if (sb) sb.classList.toggle('open');
-  });
+// =========================
+//   CARREGAR RECEBÍVEIS
+// =========================
+async function load() {
 
-  const user = enforceAuthOrRedirect(['colaborador','admin','financeiro']);
-  if (user) document.getElementById('username').textContent = user.nome || user.email;
-
-  buildMonthYearOptions(document.getElementById('fPeriod'));
-
-  window._barChart = null;
-  let _rowsAll = [];
-
-  function currentFilters(){
-    return {
-      period: document.getElementById('fPeriod').value,
-      status: document.getElementById('fStatus').value,
-      type: document.getElementById('fType').value,
-      search: (document.getElementById('fSearch').value || '').trim().toLowerCase(),
-    };
+  const rawUser = localStorage.getItem("user") || localStorage.getItem("usuario");
+  if (!rawUser) {
+      window.location = "/";
+      return;
   }
 
-  function buildActiveFiltersText(filters){
-    const parts=[];
-    if(filters.period && filters.period !== 'all'){
-      const [y,m]=filters.period.split('-');
-      parts.push(`Período: ${monthLabel(m)}/${y}`);
-    }
-    if(filters.status && filters.status !== 'all'){
-      const map={ ok:'Pago/Aprovado', pendente:'Pendente', processando:'Em processamento', negado:'Recusado' };
-      parts.push(`Status: ${map[filters.status]||filters.status}`);
-    }
-    if(filters.type && filters.type !== 'all'){
-      parts.push(`Tipo: ${filters.type==='recebivel'?'Recebível':'Produção'}`);
-    }
-    if(filters.search){
-      parts.push(`Busca: ${filters.search}`);
-    }
-    return parts.length ? 'Filtros ativos: ' + parts.join(' · ') : 'Filtros ativos: nenhum';
-  }
+  const u = JSON.parse(rawUser);
 
-  function applySearch(rows, search){
-    if(!search) return rows;
-    return rows.filter(r => {
-      const s = `${r.id||''} ${r.tipo||''} ${r.status||''}`.toLowerCase();
-      return s.includes(search);
-    });
-  }
+  const hoje = new Date();
+  const mes = String(hoje.getMonth() + 1).padStart(2, "0");
+  const ano = hoje.getFullYear();
 
-  function applyAndRender(){
-    const filters=currentFilters();
-    document.getElementById('activeFilters').textContent = buildActiveFiltersText(filters);
+  let recebiveis = [];
+  let producoes = [];
 
-    const [y,m]=String(filters.period||'').split('-');
-    document.getElementById('periodLabel').textContent = (y&&m) ? `${monthLabel(m)}/${y}` : 'Recebíveis';
-
-    let filtered = rowsApplyFilters(_rowsAll, filters);
-    filtered = applySearch(filtered, filters.search);
-
-    const k = computeKpis(filtered);
-    document.getElementById('kpi_ok').textContent = fmtBRL(k.totalOk);
-    document.getElementById('kpi_pendente').textContent = fmtBRL(k.totalPend);
-    document.getElementById('kpi_proc').textContent = fmtBRL(k.totalProc);
-
-    const recList=document.getElementById('recList');
-    renderTable(recList, filtered, { showUser:false });
-    attachRowClick(recList, filtered);
-
-    const chartData = groupPaidByDay(_rowsAll, filters.period);
-    const ctx = document.getElementById('barChart').getContext('2d');
-    if(window._barChart) window._barChart.destroy();
-
-    window._barChart = new Chart(ctx, {
-      type:'bar',
-      data:{ labels: chartData.labels, datasets:[{ label:'Pagos (R$)', data: chartData.values, backgroundColor:'#F6C21B', borderRadius:8 }] },
-      options:{
-        responsive:true,
-        maintainAspectRatio:false,
-        plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:(c)=>fmtBRL(c.parsed.y) } } },
-        scales:{ y:{ beginAtZero:true, ticks:{ callback:(v)=>'R$ '+v } } },
-        onClick: (_evt, els) => {
-          if(!els || !els.length) return;
-          const idx = els[0].index;
-          const dayLabel = chartData.labels[idx];
-          const dayFiltered = applySearch(rowsApplyFilters(_rowsAll, filters).filter(r => {
-            const d=parseISODateOnly(r.data);
-            return d && String(d.day).padStart(2,'0') === dayLabel;
-          }), filters.search);
-          renderTable(recList, dayFiltered, { showUser:false });
-          attachRowClick(recList, dayFiltered);
-          document.getElementById('tableHint').textContent = `Filtrado pelo dia ${dayLabel}`;
-        }
-      }
-    });
-
-    document.getElementById('tableHint').textContent = 'Clique numa linha para ver detalhes';
-  }
-
-  async function load(){
-    if(!user) return;
-
-    // produção precisa mes/ano
-    const [ano, mes] = document.getElementById('fPeriod').value.split('-');
-
-    let recebiveis=[];
-    let producoes=[];
-    try{
-      const [r1, r2] = await Promise.all([
-        fetch(`/api/recebiveis?user_id=${user.id}`),
-        fetch(`/api/producao/colaborador?usuario_id=${user.id}&mes=${mes}&ano=${ano}`)
+  try {
+      const [recebiveisRes, producoesRes] = await Promise.all([
+        fetch(`/api/recebiveis?user_id=${u.id}`),
+        fetch(`/api/producao/colaborador?usuario_id=${u.id}&mes=${mes}&ano=${ano}`)
       ]);
-      recebiveis = await r1.json();
-      const p = await r2.json();
-      producoes = Array.isArray(p) ? p : [];
-    }catch(e){
-      console.error('Erro ao carregar APIs:', e);
-    }
 
-    const prodConv = producoes.map(p => ({
-      id: 'P-' + p.id,
-      data: p.data,
-      valor: Number(p.total_calculado || 0),
-      tipo: 'Produção',
-      status: p.nota_status || 'pendente'
-    }));
+      recebiveis = await recebiveisRes.json();
 
-    const recNorm = (Array.isArray(recebiveis)?recebiveis:[]).map(r => ({ ...r, tipo: r.tipo || 'Recebível' }));
+      let prodJson = await producoesRes.json();
+      if (!Array.isArray(prodJson)) prodJson = [];
+      producoes = prodJson;
 
-    _rowsAll = [...recNorm, ...prodConv];
-    applyAndRender();
+  } catch (e) {
+      console.error("Erro ao carregar APIs:", e);
   }
 
-  document.getElementById('btnApply').addEventListener('click', load);
-  document.getElementById('btnClear').addEventListener('click', ()=>{
-    document.getElementById('fStatus').value = 'all';
-    document.getElementById('fType').value = 'all';
-    document.getElementById('fSearch').value = '';
-    load();
+  // Converter produções para formato compatível com recebíveis
+  const producoesConvertidas = producoes.map(p => ({
+      id: "P-" + p.id,
+      data: p.data,
+      valor: p.total_calculado || 0,
+      tipo: "Produção",
+      status: p.nota_status || "pendente"
+  }));
+
+  const todos = [...recebiveis, ...producoesConvertidas];
+
+  if (todos.length === 0) {
+      document.getElementById("lista").innerHTML = 
+        '<p class="small">Nenhum recebível encontrado.</p>';
+      return;
+  }
+
+  let html = `
+    <table class="table">
+      <tr>
+        <th>ID</th>
+        <th>Data</th>
+        <th>Valor</th>
+        <th>Tipo</th>
+        <th>Status</th>
+      </tr>
+  `;
+
+  todos.forEach(r => {
+      html += `
+      <tr>
+        <td>${r.id}</td>
+        <td>${r.data}</td>
+        <td>R$ ${Number(r.valor).toFixed(2)}</td>
+        <td>${r.tipo}</td>
+        <td>${r.status}</td>
+      </tr>
+      `;
   });
 
-  document.getElementById('kpis').addEventListener('click', (ev)=>{
-    const card = ev.target.closest('[data-kpi]');
-    if(!card) return;
-    const key = card.getAttribute('data-kpi');
-    document.getElementById('fStatus').value = key;
-    kpiSetActive(document.getElementById('kpis'), key);
-    load();
-  });
+  html += "</table>";
 
-  document.getElementById('btnExport').addEventListener('click', ()=>{
-    const filters=currentFilters();
-    let filtered = applySearch(rowsApplyFilters(_rowsAll, filters), filters.search);
-    const safe = filtered.map(r => ({
-      id: r.id,
-      data: (r.data||'').split(' ')[0],
-      valor: Number(r.valor||0),
-      tipo: r.tipo||'',
-      status: r.status||''
-    }));
-    const [y,m]=String(filters.period||'periodo').split('-');
-    downloadCSV(`recebiveis_${y||''}${m||''}.csv`, safe);
-  });
+  document.getElementById("lista").innerHTML = html;
+}
 
-  document.addEventListener('DOMContentLoaded', load);
+document.addEventListener("DOMContentLoaded", load);
 </script>
 
 </body>

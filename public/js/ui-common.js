@@ -95,29 +95,3 @@ function downloadCSV(filename, rows) {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 500);
 }
-
-
-// ===== Sidebar toggle (mobile) =====
-function initSidebarToggle() {
-  const btn = document.getElementById('btnToggleSidebar');
-  if (!btn) return;
-  btn.addEventListener('click', () => {
-    document.body.classList.toggle('sidebar-open');
-  });
-  // close on backdrop click
-  document.addEventListener('click', (e) => {
-    if (!document.body.classList.contains('sidebar-open')) return;
-    const sidebar = document.getElementById('sidebar-container');
-    const isBtn = e.target && (e.target.id === 'btnToggleSidebar' || e.target.closest('#btnToggleSidebar'));
-    const insideSidebar = sidebar && e.target && (e.target === sidebar || e.target.closest('#sidebar-container'));
-    if (!insideSidebar && !isBtn) document.body.classList.remove('sidebar-open');
-  });
-  // close on ESC
-  document.addEventListener('keydown', (e)=>{
-    if (e.key === 'Escape') document.body.classList.remove('sidebar-open');
-  });
-}
-
-window.addEventListener('load', () => {
-  try { initSidebarToggle(); } catch(e) {}
-});
