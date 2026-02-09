@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Faturamento - CoelhoLog</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<style>
+    .page-container { margin-left: 250px; padding: 20px; }
+    .cards-financeiro { display: flex; gap: 20px; flex-wrap: wrap; }
+    .card-fin { flex: 1; min-width: 260px; background: #082540; padding: 20px; border-radius: 12px; color: white; text-align: left; }
+    .card-fin h3 { margin: 0; font-size: 18px; opacity: 0.9; }
+    .card-fin .valor { font-size: 32px; font-weight: bold; margin-top: 8px; }
+
+    .card-form { background: #082540; padding: 20px; border-radius: 12px; width: 95%; max-width: 900px; margin-top: 30px; }
+    .form-control { width: 100%; padding: 12px; border-radius: 6px; border: none; margin-bottom: 12px; font-size: 15px; }
+
+    .btn-save { background: #FFD000; color: black; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; margin-top: 10px; }
+
+    table { width: 100%; margin-top: 30px; background: #082540; padding: 15px; border-radius: 12px; color: white; border-collapse: collapse; }
+    th, td { padding: 12px; text-align: left; }
+    th { font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.15); }
+</style>
+
+</head>
+
+<body>
+
+<div id="sidebar"></div>
+
+<div class="main">
+
+  <div class="header-right">
+    <button class="btn" onclick="localStorage.clear(); location='/'">Logout</button>
+  </div>
+
+<h1 style="color:white;">Faturamento dos Clientes</h1>
+
+<!-- CARDS -->
+<div class="cards-financeiro">
+    <div class="card-fin">
+        <h3>Faturamento do Mês</h3>
+        <div class="valor" id="fatMes">R$ 0,00</div>
+    </div>
+
+    <div class="card-fin">
+        <h3>Faturamento do Ano</h3>
+        <div class="valor" id="fatAno">R$ 0,00</div>
+    </div>
+
+    <div class="card-fin">
+        <h3>Ticket Médio</h3>
+        <div class="valor" id="ticketMedio">R$ 0,00</div>
+    </div>
+</div>
+
+<!-- FORM -->
+<div class="card-form">
+    <h2 style="color:white; margin-bottom:10px;">Cadastrar Faturamento</h2>
+
+    <select id="cliente" class="form-control"></select>
+
+    <input id="mes" class="form-control" type="number" placeholder="Mês (1 a 12)">
+    <input id="ano" class="form-control" type="number" placeholder="Ano (ex: 2025)">
+    <input id="valor" class="form-control" type="number" step="0.01" placeholder="Valor (ex: 15000.00)">
+    <textarea id="obs" class="form-control" placeholder="Observações (opcional)"></textarea>
+
+    <button class="btn-save" onclick="salvar()">Salvar</button>
+    <p id="msg" style="margin-top:10px; font-weight:bold;"></p>
+</div>
+
+<!-- TABELA -->
+<table>
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Cliente</th>
+            <th>Mês</th>
+            <th>Ano</th>
+            <th>Valor</th>
+            <th>Criado em</th>
+        </tr>
+    </thead>
+    <tbody id="listaFat"></tbody>
+</table>
+
+</div>
+
+<script>
+// Carregar sidebar
+fetch("/admin/sidebar_admin.html")
+  .then(r => r.text())
+  .then(h => sidebar.innerHTML = h);
+</script>
+
+<script>
+// =============================
+//     CARREGAR CLIENTES
+// =============================
+async function carregarClientes() {
+    const r = await fetch("/api/clientes");
+    const lista = await r.json();
+
+    let html = '<option value="">Selecione o cliente</option>';
+
+    lista.forEach(c => {
+        html += `<option value="${c.id}">${c.nome}</option>`;
+    });
+
+    cliente.innerHTML = html;
+}
+
+
+// =============================
+//     SALVAR FATURAMENTO
+// =============================
+async function salvar() {
+    let dados = {
+        cliente_id: Number(cliente.value),
+        mes: Number(mes.value),
+        ano: Number(ano.value),
+        valor: Number(valor.value),
+        obs: obs.value
+    };
+
+    if (!dados.cliente_id || !dados.mes || !dados.ano || !dados.valor) {
+        msg.style.color = "red";
+        msg.innerText = "Preencha todos os campos obrigatórios!";
+        return;
+    }
+
+    const r = await fetch("/api/faturamento", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(dados)
+    });
+
+    if (r.ok) {
+        msg.style.color = "lightgreen";
+        msg.innerText = "Faturamento cadastrado!";
+        carregarTabela();
+        atualizarCards();
+    } else {
+        msg.style.color = "red";
+        msg.innerText = "Erro ao salvar!";
+    }
+}
+
+
+// =============================
+//     CARREGAR TABELA
+// =============================
+async function carregarTabela() {
+    const r = await fetch("/api/faturamento");
+    const lista = await r.json();
+
+    let html = "";
+
+    lista.forEach(f => {
+        html += `
+        <tr>
+            <td>${f.id}</td>
+            <td>${f.cliente_nome}</td>
+            <td>${f.mes}</td>
+            <td>${f.ano}</td>
+            <td>R$ ${Number(f.valor).toFixed(2)}</td>
+            <td>${f.criado_em}</td>
+        </tr>`;
+    });
+
+    listaFat.innerHTML = html;
+}
+
+
+// =============================
+//     ATUALIZAR CARDS
+// =============================
+async function atualizarCards() {
+    const r = await fetch("/api/faturamento");
+    const lista = await r.json();
+
+    const mesAtual = new Date().getMonth() + 1; // número 1..12
+    const anoAtual = new Date().getFullYear();
+
+    const totalMes = lista
+        .filter(f => Number(f.mes) === mesAtual && Number(f.ano) === anoAtual)
+        .reduce((s, f) => s + Number(f.valor), 0);
+
+    const totalAno = lista
+        .filter(f => Number(f.ano) === anoAtual)
+        .reduce((s, f) => s + Number(f.valor), 0);
+
+    const ticket = lista.length > 0 ? totalAno / lista.length : 0;
+
+    fatMes.innerText = "R$ " + totalMes.toFixed(2);
+    fatAno.innerText = "R$ " + totalAno.toFixed(2);
+    ticketMedio.innerText = "R$ " + ticket.toFixed(2);
+}
+
+
+// =============================
+//     INICIAR PÁGINA
+// =============================
+carregarClientes();
+carregarTabela();
+atualizarCards();
+
+</script>
+
+</body>
+</html>

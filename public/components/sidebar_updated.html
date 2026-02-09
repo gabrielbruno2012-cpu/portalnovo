@@ -1,0 +1,29 @@
+
+<div class="sidebar">
+<div class="logo">CoelhoLog</div>
+<div class="menu">
+
+
+
+
+<div class="menu-title" style="margin-top:10px;color:#98a9bf;font-size:12px">Administração</div>
+<div id="adminLinks"></div>
+<div style="margin-top:14px"><a href="/" onclick="logout()">🔓 Logout</a></div>
+</div>
+</div>
+<script>
+(function(){
+  const user = JSON.parse(localStorage.getItem('user')||'null');
+  const adminLinks = document.getElementById('adminLinks');
+  if(user && user.role==='financeiro'){
+    adminLinks.innerHTML = `
+      <a href="/admin/dashboard.html">⚙️ Admin Dashboard</a>
+      <a href="/admin/criar_colaborador.html">👤 Criar Colaborador</a>
+      <a href="/admin/alterar_recebiveis.html">🔄 Alterar Recebíveis</a>
+      <a href="/admin/alterar_emprestimos.html">🔁 Alterar Empréstimos</a>
+      <a href="/admin/lancar_recebiveis.html">➕ Lançar Recebíveis</a>
+`;
+  }
+})();
+function logout(){ localStorage.removeItem('user'); window.location = '/'; }
+</script>

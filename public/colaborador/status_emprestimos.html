@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Status Empréstimos</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <script src="/js/ui-common.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+  <script>
+    if (localStorage.getItem('usuario') && !localStorage.getItem('user')) {
+      localStorage.setItem('user', localStorage.getItem('usuario'));
+    }
+  </script>
+
+  <div class="mobile-topbar">
+    <button class="btn btn-secondary" id="btnMenu">Menu</button>
+    <div class="small" id="periodLabel">Empréstimos</div>
+    <button class="btn" onclick="logoutEverywhere()">Sair</button>
+  </div>
+
+  <div id="sidebar-container"></div>
+
+  <main class="main">
+    <div class="header-right">
+      <button class="btn" onclick="logoutEverywhere()">Logout</button>
+    </div>
+
+    <h1>Empréstimos • <span id="username">Colaborador</span></h1>
+
+    <div class="card">
+      <div class="filter-bar">
+        <div class="field">
+          <div class="small">Status</div>
+          <select class="input" id="fStatus">
+            <option value="">Todos</option>
+            <option value="Em análise">Em análise</option>
+            <option value="Aprovado">Aprovado</option>
+            <option value="Recusado">Recusado</option>
+            <option value="Pago">Pago</option>
+          </select>
+        </div>
+        <div class="field" style="min-width:240px">
+          <div class="small">Busca</div>
+          <input class="input" id="fSearch" placeholder="ID, status" />
+        </div>
+        <div style="display:flex; gap:10px;">
+          <button class="btn" id="btnApply">Aplicar</button>
+          <button class="btn btn-secondary" id="btnClear">Limpar</button>
+        </div>
+      </div>
+      <div class="small" id="activeFilters"></div>
+    </div>
+
+    <div class="top-cards" id="kpis">
+      <div class="top-card card kpi-card" data-kpi="Em análise" title="Clique para filtrar">
+        <div class="small">Em análise</div>
+        <div class="huge" id="kpiAnalise">0</div>
+      </div>
+      <div class="top-card card kpi-card" data-kpi="Aprovado" title="Clique para filtrar">
+        <div class="small">Aprovado</div>
+        <div class="huge" id="kpiAprovado">0</div>
+      </div>
+      <div class="top-card card kpi-card" data-kpi="Recusado" title="Clique para filtrar">
+        <div class="small">Recusado</div>
+        <div class="huge" id="kpiRecusado">0</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+        <h3 style="margin:0;">Distribuição por status</h3>
+        <button class="btn btn-secondary" id="btnExport">Exportar CSV</button>
+      </div>
+      <div style="height:260px; margin-top:10px;">
+        <canvas id="pieChart"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+        <h3 style="margin:0;">Solicitações</h3>
+        <div class="small" id="tableHint">Dica: use os filtros acima</div>
+      </div>
+      <div id="list" style="margin-top:10px;"></div>
+    </div>
+
+  </main>
+
+<script>
+  fetch('/components/sidebar_colaborador.html')
+    .then(r=>r.text())
+    .then(html=>document.getElementById('sidebar-container').innerHTML=html);
+
+  document.getElementById('btnMenu').addEventListener('click', ()=>{
+    const sb=document.getElementById('sidebar');
+    if(sb) sb.classList.toggle('open');
+  });
+
+  const user = enforceAuthOrRedirect(['colaborador','admin','financeiro']);
+  if (user) document.getElementById('username').textContent = user.nome || user.email;
+
+  window._pieChart = null;
+  let _rowsAll = [];
+
+  function currentFilters(){
+    return {
+      status: document.getElementById('fStatus').value,
+      search: (document.getElementById('fSearch').value||'').trim().toLowerCase()
+    };
+  }
+
+  function buildActiveFiltersText(f){
+    const parts=[];
+    if(f.status) parts.push('Status: '+f.status);
+    if(f.search) parts.push('Busca: '+f.search);
+    return parts.length ? 'Filtros ativos: ' + parts.join(' · ') : 'Filtros ativos: nenhum';
+  }
+
+  function applyFilters(rows, f){
+    let out = rows.slice();
+    if(f.status) out = out.filter(r => String(r.status||'') === f.status);
+    if(f.search){
+      out = out.filter(r => (`${r.id||''} ${r.status||''}`).toLowerCase().includes(f.search));
+    }
+    return out;
+  }
+
+  function renderTable(rows){
+    const el=document.getElementById('list');
+    if(!rows.length){
+      el.innerHTML = '<p class="small">Nenhuma solicitação para os filtros.</p>';
+      return;
+    }
+    let html = `<div class="table-wrap"><table class="table"><tr>
+      <th>ID</th><th>Valor</th><th>Parcelas</th><th>Status</th><th>Data</th>
+    </tr>`;
+    rows.forEach(r=>{
+      const st=String(r.status||'');
+      let badge = `<span class="tag-yellow">${st}</span>`;
+      if(st.toLowerCase().includes('aprov')) badge = `<span class="tag-green">${st}</span>`;
+      if(st.toLowerCase().includes('recus') || st.toLowerCase().includes('reprov')) badge = `<span class="tag-red">${st}</span>`;
+      html += `<tr>
+        <td>${r.id}</td>
+        <td>${fmtBRL(r.valor)}</td>
+        <td>${r.parcelamentos||''}</td>
+        <td>${badge}</td>
+        <td>${(r.criado_em||'').split(' ')[0]}</td>
+      </tr>`;
+    });
+    html += `</table></div>`;
+    el.innerHTML = html;
+  }
+
+  function computeCounts(rows){
+    const c={ analise:0, aprovado:0, recusado:0, outros:0 };
+    rows.forEach(r=>{
+      const st=String(r.status||'').toLowerCase();
+      if(st.includes('anál') || st.includes('anal')) c.analise++;
+      else if(st.includes('aprov')) c.aprovado++;
+      else if(st.includes('recus') || st.includes('reprov')) c.recusado++;
+      else c.outros++;
+    });
+    return c;
+  }
+
+  function renderChart(rows){
+    const c=computeCounts(rows);
+    document.getElementById('kpiAnalise').textContent = String(c.analise);
+    document.getElementById('kpiAprovado').textContent = String(c.aprovado);
+    document.getElementById('kpiRecusado').textContent = String(c.recusado);
+
+    const ctx=document.getElementById('pieChart').getContext('2d');
+    if(window._pieChart) window._pieChart.destroy();
+    window._pieChart = new Chart(ctx, {
+      type:'doughnut',
+      data:{
+        labels:['Em análise','Aprovado','Recusado','Outros'],
+        datasets:[{ data:[c.analise,c.aprovado,c.recusado,c.outros], backgroundColor:['#F6C21B','#2ecc71','#e74c3c','rgba(207,232,255,0.25)'], borderWidth:0 }]
+      },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ color:'#d6e6f5' } } } }
+    });
+  }
+
+  function applyAndRender(){
+    const f=currentFilters();
+    document.getElementById('activeFilters').textContent = buildActiveFiltersText(f);
+    const filtered=applyFilters(_rowsAll, f);
+    renderTable(filtered);
+    renderChart(filtered);
+  }
+
+  async function load(){
+    if(!user) return;
+    const res = await fetch('/api/emprestimos?user_id='+user.id);
+    const rows = await res.json();
+    _rowsAll = Array.isArray(rows) ? rows : [];
+    applyAndRender();
+  }
+
+  document.getElementById('btnApply').addEventListener('click', applyAndRender);
+  document.getElementById('btnClear').addEventListener('click', ()=>{
+    document.getElementById('fStatus').value = '';
+    document.getElementById('fSearch').value = '';
+    applyAndRender();
+  });
+
+  document.getElementById('kpis').addEventListener('click', (ev)=>{
+    const card=ev.target.closest('[data-kpi]');
+    if(!card) return;
+    const key=card.getAttribute('data-kpi');
+    document.getElementById('fStatus').value = key;
+    // destaca visualmente
+    document.querySelectorAll('#kpis .kpi-card').forEach(el=>el.classList.toggle('kpi-active', el.getAttribute('data-kpi')===key));
+    applyAndRender();
+  });
+
+  document.getElementById('btnExport').addEventListener('click', ()=>{
+    const f=currentFilters();
+    const filtered=applyFilters(_rowsAll, f);
+    const safe=filtered.map(r=>({ id:r.id, valor:Number(r.valor||0), parcelas:r.parcelamentos||'', status:r.status||'', data:(r.criado_em||'').split(' ')[0] }));
+    downloadCSV('emprestimos.csv', safe);
+  });
+
+  document.addEventListener('DOMContentLoaded', load);
+</script>
+
+</body>
+</html>

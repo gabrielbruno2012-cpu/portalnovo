@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CoelhoLog - Login</title>
+
+<style>
+    body {
+        margin: 0;
+        background: #062345;
+        font-family: Arial, sans-serif;
+    }
+
+    .login-container {
+        max-width: 420px;
+        margin: 70px auto;
+        text-align: center;
+        padding: 20px;
+    }
+
+    .logo-box img {
+        width: 260px;
+        margin-bottom: 30px;
+        user-select: none;
+    }
+
+    .login-card {
+        background: #ffffff;
+        padding: 30px;
+        border-radius: 12px;
+        box-shadow: 0px 4px 20px rgba(0,0,0,0.3);
+        text-align: left;
+    }
+
+    .login-card h2 {
+        text-align: center;
+        color: #062345;
+        margin-bottom: 25px;
+        font-size: 26px;
+        font-weight: bold;
+    }
+
+    .input {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #cccccc;
+        border-radius: 8px;
+        margin-top: 10px;
+        font-size: 15px;
+    }
+
+    .btn-login {
+        width: 100%;
+        background: #f3c400;
+        padding: 13px;
+        border: none;
+        border-radius: 8px;
+        margin-top: 20px;
+        font-size: 18px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+
+    .btn-login:hover {
+        background: #d9ad00;
+    }
+
+    #msg {
+        margin-top: 12px;
+        color: red;
+        font-weight: bold;
+        text-align: center;
+    }
+</style>
+
+</head>
+<body>
+
+<div class="login-container">
+
+    <!-- LOGO -->
+    <div class="logo-box">
+        <img src="/img/logo.png" alt="CoelhoLog">
+    </div>
+
+    <!-- CARD DO LOGIN -->
+    <div class="login-card">
+        <h2>Login</h2>
+
+        <label>E-mail</label>
+        <input id="email" class="input" type="email" placeholder="seuemail@email.com">
+
+        <label style="margin-top:15px;">Senha</label>
+        <input id="password" class="input" type="password" placeholder="Digite sua senha">
+
+        <button class="btn-login" onclick="login()">Entrar</button>
+
+        <p id="msg"></p>
+    </div>
+
+</div>
+
+<script>
+async function login(){
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value.trim();
+
+    if(!email || !password){
+        document.getElementById('msg').innerText = "Preencha todos os campos.";
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
+
+        if(!res.ok){
+            document.getElementById('msg').innerText = "E-mail ou senha incorretos.";
+            return;
+        }
+
+        const user = await res.json();
+        localStorage.setItem("usuario", JSON.stringify(user));
+
+        if(user.role === "financeiro" || user.role === "admin"){
+            window.location.href = "/admin/dashboard_admin.html";
+        } else {
+            window.location.href = "/colaborador/dashboard.html";
+        }
+
+    } catch (err) {
+        document.getElementById('msg').innerText = "Erro ao conectar no servidor.";
+    }
+}
+</script>
+
+</body>
+</html>

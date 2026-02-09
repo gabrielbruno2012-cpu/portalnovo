@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Criar Campanha</title>
+<link rel="stylesheet" href="/css/style.css">
+
+<style>
+body {
+    background: #071a2b;
+    color: #fff;
+}
+
+/* Card */
+.card {
+    background: #0d2040;
+    padding: 30px;
+    border-radius: 14px;
+    max-width: 900px;
+    margin: 40px auto;
+    box-shadow: 0 0 15px rgba(0,0,0,0.3);
+}
+
+/* Inputs premium */
+input, select {
+    width: 100%;
+    padding: 14px;
+    margin-bottom: 18px;
+    background: #0c1b33;
+    border: 1px solid #123;
+    border-radius: 10px;
+    color: #fff;
+    outline: none;
+    font-size: 15px;
+}
+
+input::placeholder {
+    color: #9bb0c9;
+}
+
+/* Botão */
+.btn {
+    background: #ffd34f;
+    color: #000;
+    padding: 12px 22px;
+    border-radius: 10px;
+    border: none;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.btn:hover {
+    background: #ffcc33;
+}
+
+.table-container {
+    margin-top: 35px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+th, td {
+    padding: 14px;
+    border-bottom: 1px solid #123;
+}
+
+.status-on {
+    color: #4cff96;
+    font-weight: bold;
+}
+
+.status-off {
+    color: #ff6b6b;
+    font-weight: bold;
+}
+
+.action-btn {
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    border: none;
+}
+
+.atv {
+    background: #34d16e;
+    color: #000;
+}
+
+.dst {
+    background: #ff5555;
+    color: #000;
+}
+</style>
+</head>
+
+<body>
+
+<div id="sidebar-container"></div>
+
+<main>
+<div class="card">
+
+    <h1>Criar Campanha</h1>
+    <p>Cadastre novas campanhas e gerencie quais estão ativas.</p>
+
+    <label>Nome da Campanha*</label>
+    <input type="text" id="nome" placeholder="Ex: Campanha Fevereiro">
+
+    <label>Data de Início*</label>
+    <input type="date" id="inicio">
+
+    <label>Data de Fim*</label>
+    <input type="date" id="fim">
+
+    <label>Meta de SLA (%)*</label>
+    <input type="number" step="0.01" id="meta_sla" placeholder="Ex: 95">
+
+    <label>Tema*</label>
+    <input type="text" id="tema" placeholder="Ex: Operação Zero Ocorrência">
+
+    <button class="btn" onclick="criarCampanha()">Criar Campanha</button>
+
+    <hr style="border-color:#123; margin:35px 0;">
+
+    <h2>Campanhas Cadastradas</h2>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nome</th>
+                    <th>Período</th>
+                    <th>Meta SLA</th>
+                    <th>Ativa</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="listaCampanhas"></tbody>
+        </table>
+    </div>
+
+</div>
+</main>
+
+<script>
+// Sidebar
+fetch('/admin/sidebar_admin.html')
+  .then(r => r.text())
+  .then(html => document.getElementById("sidebar-container").innerHTML = html);
+
+// Criar campanha
+async function criarCampanha(){
+  const payload = {
+    nome: nome.value,
+    periodo_inicio: inicio.value,
+    periodo_fim: fim.value,
+    meta_sla: meta_sla.value,
+    tema: tema.value
+  };
+
+  await fetch("/api/campanhas/criar", {
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  alert("Campanha criada!");
+  carregarCampanhas();
+}
+
+// Ativar
+async function ativarCampanha(id){
+  await fetch("/api/campanhas/ativar", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({ campanha_id:id })
+  });
+  carregarCampanhas();
+}
+
+// Desativar campanha ativa
+async function desativarCampanha(){
+  await fetch("/api/campanhas/desativar", { method:"POST" });
+  carregarCampanhas();
+}
+
+// Listar campanhas
+async function carregarCampanhas(){
+  const res = await fetch("/api/campanhas/listar");
+  const lista = await res.json();
+
+  listaCampanhas.innerHTML = "";
+
+  lista.forEach(c => {
+    listaCampanhas.innerHTML += `
+      <tr>
+        <td>${c.id}</td>
+        <td>${c.nome}</td>
+        <td>${c.periodo_inicio} até ${c.periodo_fim}</td>
+        <td>${c.meta_sla}%</td>
+        <td>${c.ativa == 1 ? "<span class='status-on'>SIM</span>" : "<span class='status-off'>NÃO</span>"}</td>
+        <td>
+            ${c.ativa == 1 
+              ? `<button class="action-btn dst" onclick="desativarCampanha()">Desativar</button>`
+              : `<button class="action-btn atv" onclick="ativarCampanha(${c.id})">Ativar</button>`
+            }
+        </td>
+      </tr>
+    `;
+  });
+}
+
+carregarCampanhas();
+</script>
+
+</body>
+</html>

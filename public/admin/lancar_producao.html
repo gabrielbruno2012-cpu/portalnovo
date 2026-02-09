@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Lançar Produção - CoelhoLog</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    body {
+      margin: 0;
+      display: flex;
+      font-family: 'Segoe UI', sans-serif;
+      background: #062447;
+      color: white;
+    }
+
+    /* TOPBAR */
+    .topbar {
+      width: 100%;
+      height: 65px;
+      background: #002855;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 25px;
+      box-sizing: border-box;
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 20;
+    }
+
+    .topbar img {
+      height: 42px;
+    }
+
+    .btn-logout {
+      background: #f7c600;
+      border: none;
+      padding: 10px 22px;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* SIDEBAR */
+    #sidebar {
+      width: 240px;
+      background: #032040;
+      height: 100vh;
+      position: fixed;
+      top: 65px;
+      left: 0;
+      overflow-y: auto;
+    }
+
+    /* MAIN */
+    .main {
+      margin-left: 240px;
+      width: calc(100% - 240px);
+      padding: 100px 40px 40px 40px;
+      box-sizing: border-box;
+    }
+
+    h1 {
+      margin: 0 0 20px 0;
+      font-size: 26px;
+      font-weight: 700;
+    }
+
+    .card {
+      background: #ffffff18;
+      backdrop-filter: blur(6px);
+      border-radius: 12px;
+      padding: 30px;
+      max-width: 750px;
+    }
+
+    .input {
+      width: 100%;
+      padding: 12px 15px;
+      margin-bottom: 18px;
+      border-radius: 6px;
+      border: 1px solid #ffffff55;
+      background: #ffffff15;
+      color: white;
+      font-size: 15px;
+    }
+
+    .input::placeholder {
+      color: #ccc;
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+    }
+
+    .row .col {
+      flex: 1;
+    }
+
+    .btn {
+      background: #f7c600;
+      border: none;
+      padding: 12px 18px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 15px;
+    }
+
+    #msgProducao {
+      margin-top: 12px;
+      font-weight: 600;
+    }
+
+    .total-box {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: #ffffff22;
+      font-weight: 600;
+      font-size: 16px;
+    }
+
+    .small-hint {
+      font-size: 12px;
+      opacity: .7;
+      margin-top: -10px;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <img src="/img/logo.png" alt="CoelhoLog">
+    <button class="btn-logout" onclick="logout()">Logout</button>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div id="sidebar"></div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <h1>Lançar Produção</h1>
+
+    <div class="card">
+      <form id="formProducao">
+
+        <label>Colaborador</label>
+        <select class="input" id="colaborador"></select>
+
+        <label>Data</label>
+        <input class="input" id="data" type="date">
+
+        <div class="row">
+          <div class="col">
+            <label>Entregas realizadas (total do dia)</label>
+            <input class="input" id="entregas" type="number" min="0" placeholder="Quantidade total">
+          </div>
+          <div class="col">
+            <label>Valor por entrega normal (R$)</label>
+            <input class="input" id="valor_entrega" type="number" step="0.01" min="0" placeholder="Ex: 1.40">
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col">
+            <label>Produção F simples (qtd)</label>
+            <input class="input" id="fs_qtd" type="number" min="0" placeholder="Qtd F simples">
+          </div>
+          <div class="col">
+            <label>Valor F simples (R$)</label>
+            <input class="input" id="fs_valor" type="number" step="0.01" min="0" placeholder="Ex: 0.50">
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col">
+            <label>Produção bobina (qtd)</label>
+            <input class="input" id="bob_qtd" type="number" min="0" placeholder="Qtd bobina">
+          </div>
+          <div class="col">
+            <label>Valor bobina (R$)</label>
+            <input class="input" id="bob_valor" type="number" step="0.01" min="0" placeholder="Ex: 3.00">
+          </div>
+        </div>
+
+        <p class="small-hint">
+          Entregas normais = Entregas realizadas − (F simples + Bobina)
+        </p>
+
+        <div class="row">
+          <div class="col">
+            <label>Fixo diária (R$)</label>
+            <input class="input" id="fixo" type="number" step="0.01" min="0" placeholder="Ex: 250.00">
+          </div>
+          <div class="col">
+            <label>Desconto (R$)</label>
+            <input class="input" id="desconto" type="number" step="0.01" min="0" placeholder="Ex: 120.00">
+          
+<div id="loanAutoBox" class="card" style="margin-top:10px;padding:12px;border:1px solid rgba(255,255,255,.08)">
+  <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
+    <div>
+      <div class="muted" style="font-size:12px">Desconto automático • Empréstimo</div>
+      <div id="loanAutoTxt" style="font-weight:700">Nenhuma parcela pendente para esta competência</div>
+      <div id="loanAutoSub" class="muted" style="font-size:12px"></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <label style="display:flex;align-items:center;gap:8px" class="muted"><input type="checkbox" id="chkAplicarEmp" checked> Aplicar no desconto</label>
+      <button type="button" class="btn btn-outline" id="btnRecalc">Recalcular total</button>
+    </div>
+  </div>
+</div>
+</div>
+        </div>
+
+        <label>Observações</label>
+        <textarea class="input" id="obs" placeholder="Observações (opcional)" rows="3"></textarea>
+
+        <div class="total-box">
+          Total calculado: <span id="total_calculado">R$ 0,00</span>
+        </div>
+
+        <button type="submit" class="btn">Lançar Produção</button>
+        <div id="msgProducao"></div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // ===== PROTEÇÃO / LOGIN =====
+    const uStr = localStorage.getItem("usuario");
+    let user = null;
+    try { user = uStr ? JSON.parse(uStr) : null; } catch (e) { user = null; }
+
+    if (!user) {
+      window.location.href = "/";
+    } else if (user.role !== "financeiro" && user.role !== "admin") {
+      // se não for admin nem financeiro, manda para painel de colaborador
+      window.location.href = "/colaborador/demonstrativo.html";
+    }
+
+    // ===== SIDEBAR ADMIN =====
+    fetch('/admin/sidebar_admin.html')
+      .then(r => r.text())
+      .then(h => sidebar.innerHTML = h);
+
+    // ===== LOGOUT =====
+    function logout() {
+      localStorage.clear();
+      location = "/";
+    }
+
+    // ===== CARREGAR COLABORADORES =====
+    async function loadUsers() {
+      try {
+        const resp = await fetch('/api/usuarios');
+        const users = await resp.json();
+        const onlyColab = users; // se quiser filtrar por role === 'colaborador', pode filtrar aqui
+
+        colaborador.innerHTML = onlyColab.map(x => `
+          <option value="${x.id}">${x.nome}</option>
+        `).join('');
+      } catch (e) {
+        console.error("Erro ao carregar usuários:", e);
+      }
+    }
+    loadUsers();
+
+    // ===== FUNÇÕES DE CÁLCULO =====
+    const entregasInput = document.getElementById("entregas");
+    const valorEntregaInput = document.getElementById("valor_entrega");
+    const fsQtdInput = document.getElementById("fs_qtd");
+    const fsValInput = document.getElementById("fs_valor");
+    const bobQtdInput = document.getElementById("bob_qtd");
+    const bobValInput = document.getElementById("bob_valor");
+    const fixoInput = document.getElementById("fixo");
+    const descontoInput = document.getElementById("desconto");
+    const totalSpan = document.getElementById("total_calculado");
+    const msgSpan = document.getElementById("msgProducao");
+    const form = document.getElementById("formProducao");
+    const dataInput = document.getElementById("data");
+    const obsInput = document.getElementById("obs");
+
+    function toNumber(el) {
+      if (!el) return 0;
+      return Number((el.value || "0").replace(",", "."));
+    }
+
+    function formatBRL(v) {
+      return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    }
+
+    function calcularTotal() {
+      const entregas = toNumber(entregasInput);
+      const valorEntrega = toNumber(valorEntregaInput);
+
+      const fsQtd = toNumber(fsQtdInput);
+      const fsVal = toNumber(fsValInput);
+
+      const bobQtd = toNumber(bobQtdInput);
+      const bobVal = toNumber(bobValInput);
+
+      const fixo = toNumber(fixoInput);
+      const desconto = toNumber(descontoInput);
+
+      // ENTREGAS NORMAIS = total - (FS + Bobina)
+      const entregasNormais = Math.max(0, entregas - (fsQtd + bobQtd));
+
+      const totalEntregasNormais = entregasNormais * valorEntrega;
+      const totalFs = fsQtd * fsVal;
+      const totalBob = bobQtd * bobVal;
+
+      const total = totalEntregasNormais + totalFs + totalBob + fixo - desconto;
+
+      totalSpan.textContent = formatBRL(total);
+
+      return {
+        entregas,
+        valorEntrega,
+        fsQtd,
+        fsVal,
+        bobQtd,
+        bobVal,
+        fixo,
+        desconto,
+        total
+      };
+    }
+
+    [
+      entregasInput, valorEntregaInput,
+      fsQtdInput, fsValInput,
+      bobQtdInput, bobValInput,
+      fixoInput, descontoInput
+    ].forEach(el => {
+      if (!el) return;
+      el.addEventListener("input", calcularTotal);
+      el.addEventListener("change", calcularTotal);
+    });
+
+    calcularTotal();
+
+    // ===== SUBMIT DO FORMULÁRIO =====
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      msgSpan.textContent = "";
+      msgSpan.style.color = "#fff";
+
+      const usuario_id = Number(colaborador.value || 0);
+      if (!usuario_id) {
+        msgSpan.textContent = "Selecione um colaborador.";
+        msgSpan.style.color = "red";
+        return;
+      }
+
+      const data = dataInput.value;
+      if (!data) {
+        msgSpan.textContent = "Informe a data.";
+        msgSpan.style.color = "red";
+        return;
+      }
+
+      const valores = calcularTotal();
+
+      const body = {
+        usuario_id: usuario_id,
+        data: data,
+        entregas: valores.entregas,
+        valor_por_entrega: valores.valorEntrega,
+        producao_fs: valores.fsQtd,
+        valor_fs: valores.fsVal,
+        producao_bobina: valores.bobQtd,
+        valor_bobina: valores.bobVal,
+        fixo_diaria: valores.fixo,
+        desconto: valores.desconto,
+        total_calculado: valores.total,
+        obs: obsInput ? obsInput.value : ""
+      };
+
+      try {
+        const resp = await fetch("/api/producao", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
+
+        if (!resp.ok) {
+          throw new Error("Erro ao salvar produção");
+        }
+
+        msgSpan.textContent = "Produção lançada com sucesso!";
+        msgSpan.style.color = "#00ffae";
+      } catch (err) {
+        console.error(err);
+        msgSpan.textContent = "Erro ao salvar produção.";
+        msgSpan.style.color = "red";
+      }
+    });
+  
+
+// ===== EMPRÉSTIMO: DESCONTO AUTOMÁTICO POR COMPETÊNCIA (Opção B) =====
+function getQuinzenaFromDate(iso){
+  if(!iso) return null;
+  const d = Number(iso.split('-')[2]);
+  return d <= 15 ? 1 : 2;
+}
+
+async function loadParcelaCompetencia(usuarioId, isoDate){
+  const q = getQuinzenaFromDate(isoDate);
+  if(!q) return {total:0, parcelas:[], quinzena:null};
+  const [y,m] = isoDate.split('-');
+  const qs = new URLSearchParams({ usuario_id: usuarioId, ano:y, mes:String(Number(m)), quinzena:String(q) });
+  const r = await fetch('/api/emprestimos/parcelas?' + qs.toString());
+  if(!r.ok) return {total:0, parcelas:[], quinzena:q};
+  const all = await r.json();
+  const pend = all.filter(p=>p.status!=='aplicada');
+  const total = pend.reduce((s,p)=> s + Number(p.valor_parcela||0), 0);
+  return {total, parcelas:pend, quinzena:q};
+}
+
+async function previewEmprestimoAuto(){
+  const usuarioEl = document.getElementById('usuario_id') || document.getElementById('colaborador');
+  const dataEl = document.getElementById('data');
+  if(!usuarioEl || !dataEl) return;
+  const usuarioId = Number(usuarioEl.value);
+  const dataIso = dataEl.value;
+  if(!usuarioId || !dataIso) return;
+
+  const box = document.getElementById('loanAutoBox');
+  const txt = document.getElementById('loanAutoTxt');
+  const sub = document.getElementById('loanAutoSub');
+  if(!box||!txt||!sub) return;
+
+  const out = await loadParcelaCompetencia(usuarioId, dataIso);
+  if(out.total<=0){
+    txt.textContent = 'Nenhuma parcela pendente para esta competência';
+    sub.textContent = '';
+    box.dataset.autoEmp = '0';
+    return;
+  }
+  txt.textContent = `Parcela(s) pendente(s) na Q${out.quinzena} • Total: R$ ${out.total.toFixed(2).replace('.', ',')}`;
+  sub.textContent = out.parcelas.map(p=>`#${p.emprestimo_id} Parcela ${p.parcela_num}/${p.total_parcelas} (R$ ${Number(p.valor_parcela||0).toFixed(2).replace('.', ',')})`).join(' • ');
+  box.dataset.autoEmp = String(out.total);
+}
+
+function applyEmprestimoToDesconto(){
+  const chk = document.getElementById('chkAplicarEmp');
+  const box = document.getElementById('loanAutoBox');
+  const inpDesc = document.getElementById('desconto');
+  if(!chk||!box||!inpDesc) return;
+
+  const auto = Number(box.dataset.autoEmp||0);
+  const current = Number(String(inpDesc.value||'0').replace(',','.')) || 0;
+  const manualBase = ('manualBase' in inpDesc.dataset) ? Number(inpDesc.dataset.manualBase||0) : current;
+  inpDesc.dataset.manualBase = String(manualBase);
+
+  const final = chk.checked ? (manualBase + auto) : manualBase;
+  inpDesc.value = String(final.toFixed(2)).replace('.', ',');
+}
+
+function wireEmprestimoAuto(){
+  const dataEl = document.getElementById('data');
+  const usuarioEl = document.getElementById('usuario_id') || document.getElementById('colaborador');
+  const chk = document.getElementById('chkAplicarEmp');
+  const btn = document.getElementById('btnRecalc');
+
+  const run = async()=>{ await previewEmprestimoAuto(); applyEmprestimoToDesconto(); };
+  if(dataEl) dataEl.addEventListener('change', run);
+  if(usuarioEl) usuarioEl.addEventListener('change', run);
+  if(chk) chk.addEventListener('change', applyEmprestimoToDesconto);
+  if(btn) btn.addEventListener('click', ()=>{ applyEmprestimoToDesconto(); if(typeof calcular==='function') calcular(); });
+  run();
+}
+
+window.addEventListener('load', ()=>{
+  try{ wireEmprestimoAuto(); }catch(e){ console.warn(e); }
+});
+
+</script>
+
+</body>
+</html>

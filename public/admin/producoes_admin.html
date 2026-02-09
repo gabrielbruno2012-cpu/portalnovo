@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Produções • Admin</title>
+<link rel="stylesheet" href="/css/style.css">
+
+<style>
+.cards {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 15px;
+  margin-bottom: 25px;
+}
+
+.card-resumo {
+  background: #0d2040;
+  padding: 20px;
+  border-radius: 12px;
+  text-align: center;
+}
+
+.card-resumo h4 {
+  font-size: 13px;
+  opacity: .8;
+  margin-bottom: 6px;
+}
+
+.card-resumo .valor {
+  font-size: 22px;
+  font-weight: bold;
+  color: #ffd34f;
+}
+
+.table td, .table th {
+  text-align: center;
+}
+
+.status-ok { color: #4caf50; font-weight: 600; }
+.status-pendente { color: #ff9800; font-weight: 600; }
+.status-sem { color: #f44336; font-weight: 600; }
+</style>
+</head>
+
+<body>
+
+<div id="sidebar-container"></div>
+
+<main class="main">
+
+<h2>Produções — Visão Geral</h2>
+
+<!-- FILTRO -->
+<div class="card">
+  <label>Mês:</label>
+  <input type="month" id="mesFiltro">
+  <button class="btn" onclick="carregar()">Buscar</button>
+</div>
+
+<!-- CARDS -->
+<div class="cards">
+  <div class="card-resumo">
+    <h4>Total Produções</h4>
+    <div class="valor" id="total_producoes">0</div>
+  </div>
+
+  <div class="card-resumo">
+    <h4>Valor Total</h4>
+    <div class="valor" id="valor_total">R$ 0,00</div>
+  </div>
+
+  <div class="card-resumo">
+    <h4>Ticket Médio</h4>
+    <div class="valor" id="ticket_medio">R$ 0,00</div>
+  </div>
+
+  <div class="card-resumo">
+    <h4>Com Nota</h4>
+    <div class="valor" id="com_nota">0</div>
+  </div>
+
+  <div class="card-resumo">
+    <h4>Sem Nota</h4>
+    <div class="valor" id="sem_nota">0</div>
+  </div>
+</div>
+
+<!-- TABELA -->
+<div class="card">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Colaborador</th>
+        <th>Data</th>
+        <th>Valor</th>
+        <th>Ticket Médio</th>
+        <th>Nota</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody id="lista"></tbody>
+  </table>
+</div>
+
+</main>
+
+<script>
+fetch('/admin/sidebar_admin.html')
+  .then(r => r.text())
+  .then(html => document.getElementById("sidebar-container").innerHTML = html);
+
+async function carregar() {
+  const mesInput = document.getElementById("mesFiltro").value;
+  if (!mesInput) return alert("Selecione o mês");
+
+  const [ano, mes] = mesInput.split("-");
+
+  const res = await fetch(`/api/producao/admin?mes=${mes}&ano=${ano}`);
+  const dados = await res.json();
+
+  let total = dados.length;
+  let valorTotal = 0;
+  let comNota = 0;
+  let semNota = 0;
+
+  const tbody = document.getElementById("lista");
+  tbody.innerHTML = "";
+
+  dados.forEach(p => {
+    valorTotal += Number(p.total_calculado || 0);
+
+    if (p.nota) comNota++;
+    else semNota++;
+
+    const ticket = p.entregas > 0
+      ? (p.total_calculado / p.entregas)
+      : 0;
+
+    tbody.innerHTML += `
+      <tr>
+        <td>${p.colaborador}</td>
+        <td>${p.data}</td>
+        <td>R$ ${Number(p.total_calculado).toFixed(2)}</td>
+        <td>R$ ${ticket.toFixed(2)}</td>
+        <td>
+          ${p.nota ? `<a href="/uploads/notas/${p.nota}" target="_blank">Ver</a>` : "-"}
+        </td>
+        <td class="${
+          p.nota_status === 'aprovado' ? 'status-ok' :
+          p.nota_status === 'pendente' ? 'status-pendente' : 'status-sem'
+        }">
+          ${p.nota_status || 'Sem nota'}
+        </td>
+      </tr>
+    `;
+  });
+
+  document.getElementById("total_producoes").innerText = total;
+  document.getElementById("valor_total").innerText =
+    "R$ " + valorTotal.toFixed(2);
+
+  document.getElementById("ticket_medio").innerText =
+    total ? "R$ " + (valorTotal / total).toFixed(2) : "R$ 0,00";
+
+  document.getElementById("com_nota").innerText = comNota;
+  document.getElementById("sem_nota").innerText = semNota;
+}
+</script>
+
+</body>
+</html>

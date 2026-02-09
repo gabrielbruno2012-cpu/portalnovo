@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Registrar Bônus Mensal</title>
+<link rel="stylesheet" href="/css/style.css">
+
+<style>
+body {
+  background: #071a2b;
+  color: #fff;
+}
+
+/* Card principal */
+.card {
+  background: #0d2040;
+  padding: 30px;
+  border-radius: 14px;
+  max-width: 1000px;
+  margin: 40px auto;
+  box-shadow: 0 0 15px rgba(0,0,0,0.3);
+}
+
+.card h1 {
+  margin-top: 0;
+}
+
+/* Inputs */
+input, textarea, select {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 16px;
+  background: #0c1b33;
+  border: 1px solid #123;
+  border-radius: 10px;
+  color: #fff;
+  outline: none;
+  font-size: 14px;
+}
+
+textarea {
+  min-height: 70px;
+  resize: vertical;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #9bb0c9;
+}
+
+/* Botões */
+.btn {
+  background: #ffd34f;
+  color: #000;
+  padding: 11px 22px;
+  border-radius: 10px;
+  border: none;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.btn:hover {
+  background: #ffcc33;
+}
+
+/* Tabela */
+table {
+  width: 100%;
+  margin-top: 20px;
+  border-collapse: collapse;
+}
+
+th, td {
+  padding: 12px;
+  border-bottom: 1px solid #123;
+  font-size: 14px;
+}
+
+th {
+  text-align: left;
+}
+
+/* Status */
+.status-ativo {
+  color: #4cff96;
+  font-weight: bold;
+}
+
+.status-inativo {
+  color: #ff6b6b;
+  font-weight: bold;
+}
+
+/* Botões de ação na tabela */
+.action {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  margin-right: 4px;
+}
+
+.action-edit {
+  background: #34d16e;
+  color: #000;
+}
+
+.action-toggle {
+  background: #ffb347;
+  color: #000;
+}
+</style>
+</head>
+
+<body>
+
+<div id="sidebar-container"></div>
+
+<main>
+  <div class="card">
+    <h1>Registrar Bônus Mensal</h1>
+    <p>Cadastre os bônus da campanha ativa. Esses bônus aparecerão no painel do colaborador apenas com título, descrição e valor.</p>
+
+    <!-- Campanha ativa -->
+    <label>Campanha ativa</label>
+    <select id="campanha" disabled></select>
+
+    <!-- Formulário de novo bônus -->
+    <label>Título do Bônus*</label>
+    <input type="text" id="titulo" placeholder="Ex: Bônus de Performance Semanal">
+
+    <label>Descrição*</label>
+    <textarea id="descricao" placeholder="Ex: Bônus para quem atingir SLA acima de 98% na semana."></textarea>
+
+    <label>Valor (R$)*</label>
+    <input type="number" id="valor" step="0.01" placeholder="Ex: 180.00">
+
+    <label>Data / Período (controle interno)*</label>
+    <input type="text" id="data_bonus" placeholder="Ex: Janeiro 2025 / Semana 3 / 1ª Quinzena">
+
+    <button class="btn" onclick="registrarBonus()">Registrar Bônus</button>
+
+    <hr style="margin: 30px 0; border-color: #123;">
+
+    <h2>Bônus cadastrados</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Título</th>
+          <th>Descrição</th>
+          <th>Valor</th>
+          <th>Período</th>
+          <th>Status</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody id="listaBonus"></tbody>
+    </table>
+
+  </div>
+</main>
+
+<script>
+// Carregar sidebar admin
+fetch('/admin/sidebar_admin.html')
+  .then(r => r.text())
+  .then(html => {
+    document.getElementById("sidebar-container").innerHTML = html;
+  });
+
+// Variável global de campanha ativa
+let campanhaAtivaId = null;
+
+// Carregar campanha ativa
+async function carregarCampanhaAtiva() {
+  try {
+    const res = await fetch("/api/campanhas/ativa");
+    const c = await res.json();
+
+    if (!c || !c.id) {
+      campanha.innerHTML = "<option>Nenhuma campanha ativa</option>";
+      return;
+    }
+
+    campanhaAtivaId = c.id;
+    campanha.innerHTML = `<option value="${c.id}">${c.nome}</option>`;
+
+    // Após achar campanha, carregar lista de bônus
+    carregarBonus();
+  } catch (e) {
+    console.error("Erro ao carregar campanha ativa:", e);
+    campanha.innerHTML = "<option>Erro ao carregar campanha</option>";
+  }
+}
+
+// Registrar novo bônus
+async function registrarBonus() {
+  if (!campanhaAtivaId) {
+    alert("Nenhuma campanha ativa encontrada.");
+    return;
+  }
+
+  const titulo = document.getElementById("titulo").value.trim();
+  const descricao = document.getElementById("descricao").value.trim();
+  const valor = document.getElementById("valor").value.trim();
+  const data_bonus = document.getElementById("data_bonus").value.trim();
+
+  if (!titulo || !descricao || !valor || !data_bonus) {
+    alert("Preencha todos os campos obrigatórios.");
+    return;
+  }
+
+  const payload = {
+    campanha_id: campanhaAtivaId,
+    titulo,
+    descricao,
+    valor: Number(valor),
+    data: data_bonus
+  };
+
+  try {
+    await fetch("/api/incentivos/bonus/registrar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    alert("Bônus registrado com sucesso!");
+
+    // limpar campos
+    document.getElementById("titulo").value = "";
+    document.getElementById("descricao").value = "";
+    document.getElementById("valor").value = "";
+    document.getElementById("data_bonus").value = "";
+
+    carregarBonus();
+  } catch (e) {
+    console.error("Erro ao registrar bônus:", e);
+    alert("Erro ao registrar bônus.");
+  }
+}
+
+// Carregar lista de bônus da campanha ativa
+async function carregarBonus() {
+  if (!campanhaAtivaId) return;
+
+  try {
+    const res = await fetch(`/api/incentivos/bonus/listar?campanha_id=${campanhaAtivaId}`);
+    const lista = await res.json();
+
+    const tbody = document.getElementById("listaBonus");
+    tbody.innerHTML = "";
+
+    lista.forEach(b => {
+      const tr = document.createElement("tr");
+
+      tr.innerHTML = `
+        <td>${b.titulo}</td>
+        <td>${b.descricao}</td>
+        <td>R$ ${Number(b.valor).toFixed(2)}</td>
+        <td>${b.data || "-"}</td>
+        <td>
+          ${b.ativo == 1
+            ? '<span class="status-ativo">Ativo</span>'
+            : '<span class="status-inativo">Inativo</span>'
+          }
+        </td>
+        <td>
+          <button class="action action-edit" onclick="editarBonus(${b.id})">Editar</button>
+          ${
+            b.ativo == 1
+              ? `<button class="action action-toggle" onclick="alterarStatusBonus(${b.id}, 0)">Desativar</button>`
+              : `<button class="action action-toggle" onclick="alterarStatusBonus(${b.id}, 1)">Reativar</button>`
+          }
+        </td>
+      `;
+
+      tbody.appendChild(tr);
+    });
+
+  } catch (e) {
+    console.error("Erro ao carregar bônus:", e);
+  }
+}
+
+// Editar bônus (simples com prompt)
+async function editarBonus(id) {
+  const novoTitulo = prompt("Novo título do bônus:");
+  if (novoTitulo === null || novoTitulo.trim() === "") return;
+
+  const novaDescricao = prompt("Nova descrição do bônus:");
+  if (novaDescricao === null || novaDescricao.trim() === "") return;
+
+  const novoValor = prompt("Novo valor (R$):");
+  if (novoValor === null || novoValor.trim() === "") return;
+
+  const novaData = prompt("Nova data/período (Ex: Janeiro 2025 / Semana 3):");
+  if (novaData === null || novaData.trim() === "") return;
+
+  const payload = {
+    id,
+    titulo: novoTitulo.trim(),
+    descricao: novaDescricao.trim(),
+    valor: Number(novoValor),
+    data: novaData.trim()
+  };
+
+  try {
+    await fetch("/api/incentivos/bonus/editar", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    alert("Bônus atualizado com sucesso!");
+    carregarBonus();
+  } catch (e) {
+    console.error("Erro ao editar bônus:", e);
+    alert("Erro ao editar bônus.");
+  }
+}
+
+// Ativar / desativar bônus
+async function alterarStatusBonus(id, novoAtivo) {
+  const mensagem = novoAtivo === 1 ? "reativar" : "desativar";
+  if (!confirm(`Deseja realmente ${mensagem} este bônus?`)) return;
+
+  try {
+    await fetch("/api/incentivos/bonus/status", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, ativo: novoAtivo })
+    });
+
+    carregarBonus();
+  } catch (e) {
+    console.error("Erro ao alterar status do bônus:", e);
+    alert("Erro ao alterar status do bônus.");
+  }
+}
+
+// Inicialização
+carregarCampanhaAtiva();
+</script>
+
+</body>
+</html>

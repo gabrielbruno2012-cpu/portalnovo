@@ -1,0 +1,79 @@
+<html>
+<head>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<!-- Proteção de segurança -->
+<script>
+const uStr = localStorage.getItem("usuario");
+let u = null;
+try { u = uStr ? JSON.parse(uStr) : null; } catch(e){ u = null; }
+
+if (!u) {
+  window.location.href = "/";
+} else if (u.role !== "financeiro" && u.role !== "admin") {
+  window.location.href = "/colaborador/dashboard.html";
+}
+</script>
+
+<div id="sidebar"></div>
+
+<div class="main">
+ <div class="header-right">
+   <button class="btn" onclick="localStorage.clear();location='/'">Logout</button>
+ </div>
+
+ <h1>Todos os Empréstimos</h1>
+
+ <div class="card" style="margin-top:20px;">
+   <table class="table" id="tabela"></table>
+ </div>
+</div>
+
+<script>
+// carregar a sidebar admin
+fetch('/admin/sidebar_admin.html')
+  .then(r => r.text())
+  .then(h => sidebar.innerHTML = h);
+
+// formato de moeda
+function money(n){
+  return "R$ " + Number(n || 0).toLocaleString("pt-BR",{minimumFractionDigits:2});
+}
+
+async function load() {
+  const dados = await fetch('/api/emprestimos').then(r => r.json());
+
+  let html = `
+    <tr>
+      <th>ID</th>
+      <th>Colaborador</th>
+      <th>Valor</th>
+      <th>Parcelas</th>
+      <th>Status</th>
+      <th>Criado em</th>
+    </tr>
+  `;
+
+  dados.forEach(e => {
+    html += `
+      <tr>
+        <td>${e.id}</td>
+        <td>${e.nome}</td>
+        <td>${money(e.valor)}</td>
+        <td>${e.parcelamentos}</td>
+        <td>${e.status}</td>
+        <td>${e.criado_em || ""}</td>
+      </tr>
+    `;
+  });
+
+  tabela.innerHTML = html;
+}
+
+load();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Status das Produções</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .btn-green {
+    background: #0DFF00;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+}
+    .btn-red {
+    background: #FF0000;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+}
+  </style>
+</head>
+<body>
+
+<div id="sidebar-container"></div>
+
+<main class="main">
+  <div class="header-right">
+    <button class="btn" onclick="logout()">Logout</button>
+  </div>
+
+  <h1>Status das Produções</h1>
+
+  <div class="card">
+    <h3>Produções (todas)</h3>
+    <div id="lista-pendentes" style="margin-top:20px;"></div>
+  </div>
+</main>
+
+<script>
+// carregar sidebar do admin (ajusta se o seu caminho for diferente)
+fetch("/admin/sidebar_admin.html")
+  .then(r => r.text())
+  .then(html => document.getElementById("sidebar-container").innerHTML = html);
+
+function logout(){
+  localStorage.removeItem("usuario");
+  localStorage.removeItem("user");
+  window.location = "/";
+}
+
+// carregar TODAS as produções
+async function carregarProducoes() {
+  const res = await fetch("/api/producao/pendentes"); // agora traz tudo
+  const dados = await res.json();
+  const container = document.getElementById("lista-pendentes");
+
+  if (!dados.length) {
+    container.innerHTML = `<p style="text-align:center; color:#ccc;">Nenhuma produção cadastrada.</p>`;
+    return;
+  }
+
+  let html = `
+    <table class="table">
+      <tr>
+        <th>ID</th>
+        <th>Colaborador</th>
+        <th>Data</th>
+        <th>Valor</th>
+        <th>Nota</th>
+        <th>Status</th>
+        <th>Ações</th>
+      </tr>
+  `;
+
+  dados.forEach(p => {
+    const status = (p.nota_status || "").toLowerCase();
+    let statusLabel = "—";
+    let statusClass = "";
+
+    if (status === "pendente") {
+      statusLabel = "Pendente";
+      statusClass = "tag-yellow";
+    } else if (status === "aprovado") {
+      statusLabel = "Aprovado";
+      statusClass = "tag-green";
+    } else if (status === "recusado") {
+      statusLabel = "Recusado";
+      statusClass = "tag-red";
+    }
+
+    // ações só se estiver pendente
+    let acoes = "—";
+    if (status === "pendente") {
+      acoes = `
+        <button class="btn-green" onclick="aprovar(${p.id})">Aprovar</button>
+        <button class="btn-red" onclick="reprovar(${p.id})">Reprovar</button>
+      `;
+    }
+
+    html += `
+      <tr>
+        <td>P-${p.id}</td>
+        <td>${p.colaborador}</td>
+        <td>${p.data}</td>
+        <td>R$ ${Number(p.total_calculado).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+        <td>
+          ${p.nota ? `<a href="/uploads/notas/${p.nota}" target="_blank" class="btn-sm">Ver Nota</a>` : "—"}
+        </td>
+        <td><span class="${statusClass}">${statusLabel}</span></td>
+        <td>${acoes}</td>
+      </tr>
+    `;
+  });
+
+  html += `</table>`;
+  container.innerHTML = html;
+}
+
+// aprovar → usa rota que já existe no server
+async function aprovar(id) {
+  if (!confirm("Confirmar aprovação desta produção?")) return;
+
+  await fetch(`/api/producao/aprovar-nota/${id}`, { method: "PUT" });
+  alert("Produção aprovada!");
+  carregarProducoes();
+}
+
+// reprovar → usa rota que já existe no server
+async function reprovar(id) {
+  if (!confirm("Confirmar reprovação desta produção?")) return;
+
+  await fetch(`/api/producao/recusar-nota/${id}`, { method: "PUT" });
+  alert("Produção recusada!");
+  carregarProducoes();
+}
+
+document.addEventListener("DOMContentLoaded", carregarProducoes);
+</script>
+
+</body>
+</html>

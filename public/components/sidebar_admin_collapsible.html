@@ -1,0 +1,42 @@
+<!-- SIDEBAR ADMIN RECOLHÍVEL -->
+<aside class="sidebar" id="sidebar">
+  <div class="logo-area">
+    <span class="menu-toggle" onclick="toggleSidebar()">☰</span>
+  </div>
+
+  <nav class="menu">
+      <a href="/admin/fechar_quinzena.html" class="menu-item">📅 <span class="menu-text">Fechar Quinzena</span></a>
+
+    <a href="/admin/dashboard_admin.html"><span class="icon">📊</span><span class="menu-text">Dashboard</span></a>
+    <a href="/admin/alterar_recebiveis.html"><span class="icon">💰</span><span class="menu-text">Recebíveis</span></a>
+    <a href="/admin/alterar_emprestimos.html"><span class="icon">💳</span><span class="menu-text">Empréstimos</span></a>
+    <a href="/admin/todos_emprestimos.html"><span class="icon">📋</span><span class="menu-text">Todos empréstimos</span></a>
+    <a href="/admin/lancar_recebiveis.html"><span class="icon">➕</span><span class="menu-text">Lançar recebível</span></a>
+    <a href="/admin/lancar_producao.html"><span class="icon">➕</span><span class="menu-text">Lançar produção</span></a>
+    <a href="/admin/admin_producao_status.html"><span class="icon">🧾</span><span class="menu-text">Aprovar notas</span></a>
+    <a href="/admin/criar_colaborador.html"><span class="icon">👤</span><span class="menu-text">Criar colaborador</span></a>
+    <a href="/admin/clientes.html"><span class="icon">🏢</span><span class="menu-text">Clientes</span></a>
+    <a href="/admin/faturamento.html"><span class="icon">🧮</span><span class="menu-text">Faturamento</span></a>
+
+    <a href="#" onclick="logoutEverywhere()"><span class="icon">🚪</span><span class="menu-text">Sair</span></a>
+  </nav>
+</aside>
+
+<script>
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const main = document.querySelector('.main');
+  sidebar.classList.toggle('collapsed');
+  if (main) main.classList.toggle('collapsed');
+  localStorage.setItem('sidebar_collapsed', sidebar.classList.contains('collapsed'));
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const collapsed = localStorage.getItem('sidebar_collapsed') === 'true';
+  if (collapsed) {
+    document.getElementById('sidebar').classList.add('collapsed');
+    const main = document.querySelector('.main');
+    if (main) main.classList.add('collapsed');
+  }
+});
+</script>

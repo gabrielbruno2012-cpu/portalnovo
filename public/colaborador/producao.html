@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Produção</title>
+
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/js/ui-common.js"></script>
+  <script src="/js/dashboard-widgets.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+  <script>
+    // compat: login admin → colaborador
+    if (localStorage.getItem('usuario') && !localStorage.getItem('user')) {
+      localStorage.setItem('user', localStorage.getItem('usuario'));
+    }
+  </script>
+
+  <div class="mobile-topbar">
+    <button class="btn btn-secondary" id="btnMenu">Menu</button>
+    <div class="small" id="periodLabel">Produção</div>
+    <button class="btn" onclick="logoutEverywhere()">Sair</button>
+  </div>
+
+  <div id="sidebar-container"></div>
+
+  <main class="main">
+
+    <div class="header-right">
+      <button class="btn" onclick="logoutEverywhere()">Logout</button>
+    </div>
+
+    <h1>Produção • <span id="username">Colaborador</span></h1>
+
+    <div class="card">
+      <div class="filter-bar">
+        <div class="field">
+          <div class="small">Período</div>
+          <select class="input" id="fPeriod"></select>
+        </div>
+        <div class="field">
+          <div class="small">Status da nota</div>
+          <select class="input" id="fNota">
+            <option value="all">Todos</option>
+            <option value="enviar">Sem nota / Enviar</option>
+            <option value="pendente">Pendente</option>
+            <option value="aprovado">Aprovado</option>
+            <option value="recusado">Recusado</option>
+          </select>
+        </div>
+        <div style="display:flex; gap:10px;">
+          <button class="btn" id="btnApply">Aplicar</button>
+          <button class="btn btn-secondary" id="btnClear">Limpar</button>
+        </div>
+      </div>
+      <div class="small" id="activeFilters"></div>
+    </div>
+
+    <div class="top-cards">
+      <div class="top-card card">
+        <div class="small">Total do período</div>
+        <div class="huge" id="kpiTotal">R$ 0,00</div>
+      </div>
+      <div class="top-card card">
+        <div class="small">Dias lançados</div>
+        <div class="huge" id="kpiDias">0</div>
+      </div>
+      <div class="top-card card">
+        <div class="small">Entregas</div>
+        <div class="huge" id="kpiEntregas">0</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+        <h3 style="margin:0;">Lançamentos de produção</h3>
+        <div class="small" id="tableHint">Envie a nota fiscal por linha</div>
+      </div>
+      <div id="prodList" style="margin-top:10px;"></div>
+    </div>
+
+  
+    <div class="card">
+      <div class="row" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div>
+          <h2 style="margin:0">Total por dia</h2>
+          <div class="small">Dica: clique em uma barra para filtrar a tabela por aquele dia</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-secondary" id="btnExport">Exportar CSV</button>
+        </div>
+      </div>
+      <div class="chart-wrap" style="margin-top:12px">
+        <canvas id="barChart"></canvas>
+      </div>
+    </div>
+
+</main>
+
+<script>
+  // Sidebar colaborador
+  fetch('/components/sidebar_colaborador.html')
+    .then(r => r.text())
+    .then(html => document.getElementById('sidebar-container').innerHTML = html);
+
+  // mobile menu
+  document.getElementById('btnMenu').addEventListener('click', () => {
+    const sb = document.getElementById('sidebar');
+    if (sb) sb.classList.toggle('open');
+  });
+
+  const user = enforceAuthOrRedirect(['colaborador','admin','financeiro']);
+  if (user) document.getElementById('username').textContent = user.nome || user.email;
+
+  buildMonthYearOptions(document.getElementById('fPeriod'));
+
+  function buildActiveFiltersText(filters){
+    const parts = [];
+    if (filters.period && filters.period !== 'all') {
+      const [y,m] = filters.period.split('-');
+      parts.push(`Período: ${monthLabel(m)}/${y}`);
+    }
+    if (filters.nota && filters.nota !== 'all') {
+      const map = {enviar:'Sem nota', pendente:'Pendente', aprovado:'Aprovado', recusado:'Recusado'};
+      parts.push(`Nota: ${map[filters.nota] || filters.nota}`);
+    }
+    return parts.length ? 'Filtros ativos: ' + parts.join(' · ') : 'Filtros ativos: nenhum';
+  }
+
+  function currentFilters(){
+    return {
+      period: document.getElementById('fPeriod').value,
+      nota: document.getElementById('fNota').value,
+    };
+  }
+
+  async function enviarNota(producaoId){
+    const input = document.getElementById('file_' + producaoId);
+    if(!input) return;
+    input.click();
+
+    input.onchange = async () => {
+      if(!input.files || !input.files.length) return;
+      const arquivo = input.files[0];
+
+      const formData = new FormData();
+      formData.append('nota', arquivo);
+      formData.append('producao_id', producaoId);
+      formData.append('usuario_id', user.id);
+
+      const resp = await fetch('/api/producao/enviar-nota', { method:'POST', body: formData });
+      if(resp.ok){
+        alert('Nota enviada com sucesso!');
+        load();
+      }else{
+        alert('Erro ao enviar nota!');
+      }
+    };
+  }
+
+  function renderProducaoTable(rows){
+    const el = document.getElementById('prodList');
+    if(!rows.length){
+      el.innerHTML = '<p class="small">Nenhum lançamento de produção para os filtros selecionados.</p>';
+      return;
+    }
+
+    let html = `<div class="table-wrap"><table class="table"><tr>
+      <th>Data</th>
+      <th>Total dia</th>
+      <th>Entregas</th>
+      <th>FS</th>
+      <th>Bobina</th>
+      <th>Nota</th>
+    </tr>`;
+
+    rows.forEach(r => {
+      const st = String(r.nota_status || '').toLowerCase();
+      let notaHtml = '';
+
+      if(st === 'pendente') notaHtml = `<span class="tag-yellow">Aguardando análise</span>`;
+      else if(st === 'aprovado') notaHtml = `<span class="tag-green">Aprovada</span>`;
+      else if(st === 'recusado' || st === 'reprovado') notaHtml = `<span class="tag-red">Recusada</span>`;
+      else notaHtml = `<button class="btn btn-secondary" onclick="enviarNota(${r.id})">Enviar nota</button>`;
+
+      const entregas = Number(r.entregas || 0);
+      const fsQtd = Number(r.producao_fs || 0);
+      const bobQtd = Number(r.producao_bobina || 0);
+      const entregasLiquidas = entregas - (fsQtd + bobQtd);
+
+      html += `<tr>
+        <td>${(r.data||'').split(' ')[0]}</td>
+        <td>${fmtBRL(r.total_calculado || 0)}</td>
+        <td>${entregasLiquidas}</td>
+        <td>${fsQtd}</td>
+        <td>${bobQtd}</td>
+        <td>
+          <input type="file" accept="image/*,application/pdf" style="display:none" id="file_${r.id}">
+          ${notaHtml}
+        </td>
+      </tr>`;
+    });
+
+    html += `</table></div>`;
+    el.innerHTML = html;
+  }
+
+  function applyAndRender(allRows){
+    const filters = currentFilters();
+    document.getElementById('activeFilters').textContent = buildActiveFiltersText(filters);
+
+    const [y,m] = String(filters.period||'').split('-');
+    document.getElementById('periodLabel').textContent = (y && m) ? `${monthLabel(m)}/${y}` : 'Produção';
+
+    let rows = Array.isArray(allRows) ? allRows : [];
+
+    // filtro periodo
+    rows = rows.filter(r => {
+      const d = parseISODateOnly(r.data);
+      if(!d) return false;
+      const ym = `${String(d.y).padStart(4,'0')}-${String(d.m).padStart(2,'0')}`;
+      return ym === filters.period;
+    });
+
+    // filtro nota
+    if(filters.nota && filters.nota !== 'all'){
+      rows = rows.filter(r => {
+        const st = String(r.nota_status || '').toLowerCase();
+        if(filters.nota === 'enviar') return !st || st === 'nao_enviada' || st === 'sem_nota';
+        if(filters.nota === 'pendente') return st === 'pendente';
+        if(filters.nota === 'aprovado') return st === 'aprovado';
+        if(filters.nota === 'recusado') return st === 'recusado' || st === 'reprovado';
+        return true;
+      });
+    }
+
+    // KPIs
+    let total = 0;
+    const dias = new Set();
+    let entregasSum = 0;
+    rows.forEach(r => {
+      total += Number(r.total_calculado || 0);
+      if(r.data) dias.add((r.data||'').split(' ')[0]);
+      const entregas = Number(r.entregas || 0);
+      const fsQtd = Number(r.producao_fs || 0);
+      const bobQtd = Number(r.producao_bobina || 0);
+      entregasSum += (entregas - (fsQtd + bobQtd));
+    });
+
+    document.getElementById('kpiTotal').textContent = fmtBRL(total);
+    document.getElementById('kpiDias').textContent = String(dias.size);
+    document.getElementById('kpiEntregas').textContent = String(entregasSum);
+
+    renderProducaoTable(rows);
+  }
+
+  async function load(){
+    if(!user) return;
+
+    const [y,m] = document.getElementById('fPeriod').value.split('-');
+    // backend exige mes/ano em separados
+    const mes = m;
+    const ano = y;
+
+    let producoes = [];
+    try{
+      const resp = await fetch(`/api/producao/colaborador?usuario_id=${user.id}&mes=${mes}&ano=${ano}`);
+      producoes = await resp.json();
+      if(!Array.isArray(producoes)) producoes = [];
+    }catch(e){
+      console.error('Erro ao carregar produção:', e);
+      producoes = [];
+    }
+
+    applyAndRender(producoes);
+  }
+
+  document.getElementById('btnApply').addEventListener('click', load);
+  document.getElementById('btnClear').addEventListener('click', ()=>{
+    document.getElementById('fNota').value = 'all';
+    load();
+  });
+
+  document.addEventListener('DOMContentLoaded', load);
+
+  // chart + export
+  window._barChart = null;
+
+  function groupTotalByDay(rows, ym){
+    const out = {};
+    for(const r of rows){
+      const d = parseISODateOnly(r.data);
+      if(!d) continue;
+      const key = `${d.y}-${String(d.m).padStart(2,'0')}`;
+      if(ym && key!==ym) continue;
+      const k = String(d.day).padStart(2,'0');
+      out[k] = (out[k]||0) + (Number(r.total)||0);
+    }
+    const labels = Object.keys(out).sort();
+    const values = labels.map(l=>out[l]);
+    return {labels, values};
+  }
+
+  function renderChart(rows, ym){
+    const ctx = document.getElementById('barChart');
+    if(!ctx) return;
+    const {labels, values} = groupTotalByDay(rows, ym);
+    const c = ctx.getContext('2d');
+    if(window._barChart) window._barChart.destroy();
+    window._barChart = new Chart(c, {
+      type:'bar',
+      data:{ labels, datasets:[{ label:'Total (R$)', data: values, backgroundColor:'#F6C21B' }] },
+      options:{
+        responsive:true,
+        plugins:{ tooltip:{ callbacks:{ label:(i)=> fmtBRL(i.raw) } } },
+        scales:{ y:{ ticks:{ callback:(v)=> 'R$ '+Number(v).toLocaleString('pt-BR') } } },
+        onClick:(evt, els)=>{
+          if(!els || !els.length) return;
+          const idx = els[0].index;
+          const day = labels[idx];
+          // aplica filtro por dia (YYYY-MM-DD)
+          window._dayFilter = day;
+          applyAndRender();
+        }
+      }
+    });
+  }
+
+  function exportCSV(rows, ym){
+    const safe = (ym||'periodo').replace('-','');
+    const out = rows.map(r=>({
+      id:r.id,
+      data:r.data,
+      entregas:r.entregas,
+      fs:r.fs,
+      bobina:r.bobina,
+      fixo:r.fixo,
+      desconto:r.desconto,
+      total:r.total,
+      nota_status:r.nota_status||'',
+    }));
+    downloadCSV(`producao_${safe}.csv`, out);
+  }
+
+
+</html>

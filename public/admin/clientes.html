@@ -1,0 +1,196 @@
+<html>
+<head>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<!-- 🔐 Proteção -->
+<script>
+const uStr = localStorage.getItem("usuario");
+let u = null;
+try { u = uStr ? JSON.parse(uStr) : null; } catch(e){ u = null; }
+
+if (!u || (u.role !== "financeiro" && u.role !== "admin")) {
+  window.location.href = "/";
+}
+</script>
+
+<div id="sidebar"></div>
+
+<div class="main">
+
+  <div class="header-right">
+    <button class="btn" onclick="localStorage.clear(); location='/'">Logout</button>
+  </div>
+
+  <h1>Cadastro de Clientes / Empresas</h1>
+
+  <!-- FORM CARD -->
+  <div class="card" style="margin-top:20px; padding:20px;">
+
+      <div class="form-group">
+        <label>Nome / Razão Social*</label>
+        <input id="nome" class="input" type="text" placeholder="Ex: CoelhoLog Transportes">
+      </div>
+
+      <div class="form-group">
+        <label>CNPJ</label>
+        <input id="cnpj" class="input" type="text" placeholder="00.000.000/0000-00">
+      </div>
+
+      <div class="form-group">
+        <label>Telefone</label>
+        <input id="telefone" class="input" type="text" placeholder="(00) 00000-0000">
+      </div>
+
+      <div class="form-group">
+        <label>E-mail</label>
+        <input id="email" class="input" type="email" placeholder="financeiro@empresa.com">
+      </div>
+
+      <div class="form-group">
+        <label>Endereço</label>
+        <input id="endereco" class="input" type="text" placeholder="Rua, número, bairro, cidade">
+      </div>
+
+      <div class="form-group">
+        <label>Observações</label>
+        <textarea id="obs" class="input" style="height:100px;" placeholder="Informações adicionais"></textarea>
+      </div>
+
+      <button class="btn" onclick="salvarCliente()" style="margin-top:15px;">Cadastrar Cliente</button>
+
+      <p id="msg" style="margin-top:15px; font-weight:bold;"></p>
+
+  </div>
+
+
+  <!-- LISTA -->
+  <h2 style="margin-top:40px;">Lista de Clientes / Empresas</h2>
+
+  <div class="card" style="padding:20px; margin-top:10px;">
+    <table style="width:100%; color:white;">
+      <thead>
+        <tr>
+          <th style="text-align:left;">ID</th>
+          <th style="text-align:left;">Nome</th>
+          <th style="text-align:left;">CNPJ</th>
+          <th style="text-align:left;">Telefone</th>
+          <th style="text-align:left;">E-mail</th>
+          <th style="text-align:left;">Data Cadastro</th>
+          <th style="text-align:left;">Ações</th>
+        </tr>
+      </thead>
+      <tbody id="listaClientes">
+        <tr><td colspan="7">Nenhum cliente cadastrado.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+
+<script>
+// Carregar sidebar
+fetch("/admin/sidebar_admin.html")
+  .then(r => r.text())
+  .then(h => sidebar.innerHTML = h);
+
+
+// Salvar novo cliente
+async function salvarCliente() {
+  let nome = document.getElementById("nome").value.trim();
+  let cnpj = document.getElementById("cnpj").value.trim();
+  let telefone = document.getElementById("telefone").value.trim();
+  let email = document.getElementById("email").value.trim();
+  let endereco = document.getElementById("endereco").value.trim();
+  let obs = document.getElementById("obs").value.trim();
+
+  if (!nome) {
+    msg.innerText = "Preencha o nome!";
+    msg.style.color = "red";
+    return;
+  }
+
+  let dados = { nome, cnpj, telefone, email, endereco, obs };
+
+  const res = await fetch("/api/clientes", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(dados)
+  });
+
+  if (res.ok) {
+    msg.innerText = "Cliente cadastrado com sucesso!";
+    msg.style.color = "lightgreen";
+    carregarClientes();
+
+    // limpar
+    nome.value = "";
+    cnpj.value = "";
+    telefone.value = "";
+    email.value = "";
+    endereco.value = "";
+    obs.value = "";
+
+  } else {
+    msg.innerText = "Erro ao cadastrar!";
+    msg.style.color = "red";
+  }
+}
+
+
+// Carregar tabela de clientes
+async function carregarClientes() {
+  const res = await fetch("/api/clientes");
+  const lista = await res.json();
+
+  let html = "";
+
+  if (lista.length === 0) {
+    html = `<tr><td colspan="7">Nenhum cliente cadastrado.</td></tr>`;
+  } else {
+    lista.forEach(c => {
+      html += `
+        <tr>
+          <td>${c.id}</td>
+          <td>${c.nome}</td>
+          <td>${c.cnpj || "-"}</td>
+          <td>${c.telefone || "-"}</td>
+          <td>${c.email || "-"}</td>
+          <td>${c.data_cadastro || "-"}</td>
+          <td><button class="btn" onclick="remover(${c.id})">Excluir</button></td>
+        </tr>
+      `;
+    });
+  }
+
+  listaClientes.innerHTML = html;
+}
+
+
+// Remover cliente
+async function remover(id) {
+  if (!confirm("Deseja remover este cliente?")) return;
+
+  const res = await fetch("/api/clientes/" + id, { method:"DELETE" });
+
+  if (res.ok) carregarClientes();
+}
+
+carregarClientes();
+</script>
+
+<style>
+.form-group {
+  margin-bottom: 15px;
+  color: white;
+}
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+}
+</style>
+
+</body>
+</html>

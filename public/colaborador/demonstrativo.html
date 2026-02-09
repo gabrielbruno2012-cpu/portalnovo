@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Demonstrativo de Produção - CoelhoLog</title>
+<link rel="stylesheet" href="/css/style.css">
+<style>
+.btn-upload{background: var(--accent); color: var(--blue); padding: 10px 12px; border-radius: 10px; border:none; cursor:pointer; font-weight:800;}
+</style>
+  <script src="/js/ui-common.js"></script>
+  <script src="/js/dashboard-widgets.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="mobile-topbar">
+    <button class="btn btn-secondary" id="btnMenu">Menu</button>
+    <div class="small" id="periodLabel">—</div>
+    <button class="btn" onclick="logoutEverywhere()">Sair</button>
+  </div>
+
+  <div id="sidebar-container"></div>
+
+
+<!-- SIDEBAR DO COLABORADOR -->
+<div id="sidebar-container"></div>
+
+
+    
+<main class="main">
+    <h1>Demonstrativo de Produção</h1>
+
+    <div class="top-cards" style="margin-top:12px" id="demoKpis">
+      <div class="top-card" data-kpi="total">
+        <div class="small">Total do mês</div>
+        <div class="kpi-value" id="kpiTotal">R$ 0,00</div>
+      </div>
+      <div class="top-card" data-kpi="entregas">
+        <div class="small">Entregas</div>
+        <div class="kpi-value" id="kpiEntregas">0</div>
+      </div>
+      <div class="top-card" data-kpi="dias">
+        <div class="small">Dias lançados</div>
+        <div class="kpi-value" id="kpiDias">0</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <div class="row" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div>
+          <h2 style="margin:0">Total por dia</h2>
+          <div class="small">Clique em uma barra para destacar o dia na tabela</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-secondary" id="btnExportDemo">Exportar CSV</button>
+        </div>
+      </div>
+      <div class="chart-wrap" style="margin-top:12px">
+        <canvas id="demoChart"></canvas>
+      </div>
+    <div class="card" style="margin-top:12px">
+      <div class="row" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div>
+          <h2 style="margin:0">Empréstimos & Descontos</h2>
+          <div class="small">Parcelas são descontadas automaticamente por quinzena no fechamento</div>
+        </div>
+      </div>
+
+      <div class="top-cards" style="margin-top:12px" id="loanKpis">
+        <div class="top-card">
+          <div class="small">Total emprestado</div>
+          <div class="kpi-value" id="kEmpTotal">R$ 0,00</div>
+        </div>
+        <div class="top-card">
+          <div class="small">Total descontado</div>
+          <div class="kpi-value" id="kEmpDesc">R$ 0,00</div>
+        </div>
+        <div class="top-card">
+          <div class="small">Saldo estimado</div>
+          <div class="kpi-value" id="kEmpSaldo">R$ 0,00</div>
+        </div>
+      </div>
+
+      <div id="loanList" style="margin-top:12px"></div>
+    </div>
+
+    </div>
+
+    <div id="msg"></div>
+
+    <!-- FILTROS -->
+    <div class="filtros">
+        <div>
+            <label>Mês:</label>
+            <select id="quinzena"></select>
+        </div>
+        <div>
+            <label>Ano:</label>
+            <select id="mes" class="input" style="min-width:160px"></select>
+<select id="ano"></select>
+        </div>
+        <button class="btn-logout" style="padding:8px 16px;" onclick="carregar()">Atualizar</button>
+    </div>
+
+    <!-- CARDS RESUMO -->
+    <div class="cards">
+        <div class="card-resumo">
+            <h3>Total do mês</h3>
+            <div class="valor" id="cardTotalMes">R$ 0,00</div>
+        </div>
+        <div class="card-resumo">
+            <h3>Entregas totais</h3>
+            <div class="valor" id="cardEntregas">0</div>
+        </div>
+        <div class="card-resumo">
+            <h3>F simples (qtd / R$)</h3>
+            <div class="valor" id="cardFs">0 / R$ 0,00</div>
+        </div>
+        <div class="card-resumo">
+            <h3>Bobina (qtd / R$)</h3>
+            <div class="valor" id="cardBobina">0 / R$ 0,00</div>
+        </div>
+        <div class="card-resumo">
+            <h3>Dias trabalhados</h3>
+            <div class="valor" id="cardDias">0</div>
+        </div>
+    </div>
+
+    <!-- TABELA DETALHADA -->
+    <div class="tabela-container table-wrap">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Data</th>
+                    <th>Entregas</th>
+                    <th>F simples (qtd × R$)</th>
+                    <th>Bobina (qtd × R$)</th>
+                    <th>Fixo (R$)</th>
+                    <th>Desconto (R$)</th>
+                    <th>Total dia (R$)</th>
+                    <th>OBS</th>
+                    <th> Nota</th>
+                </tr>
+            </thead>
+            <tbody id="tbodyProd"></tbody>
+        </table>
+        <div class="badge-total" id="totalResumo"></div>
+    </div>
+</div>
+
+<script>
+    
+    async function enviarNota(id) {
+    const fileInput = document.getElementById("file_" + id);
+
+    // abre o seletor de arquivos
+    fileInput.click();
+
+    fileInput.onchange = async () => {
+
+        if (!fileInput.files.length) return;
+
+        const arquivo = fileInput.files[0];
+
+        const formData = new FormData();
+        formData.append("nota", arquivo);
+        formData.append("producao_id", id);
+        formData.append("usuario_id", user.id);
+
+        const resp = await fetch("/api/producao/enviar-nota", {
+            method: "POST",
+            body: formData
+        });
+
+        if (resp.ok) {
+            alert("Nota enviada com sucesso!");
+        } else {
+            alert("Erro ao enviar nota!");
+        }
+    };
+}
+  
+// ===== AUTENTICAÇÃO BÁSICA DO COLABORADOR =====
+const uStr = localStorage.getItem("usuario");
+let user = null;
+try { user = uStr ? JSON.parse(uStr) : null; } catch(e){ user = null; }
+
+if (!user) {
+    location = "/";
+} else if (user.role !== "colaborador") {
+    // se não for colaborador, manda pro admin (ajuste se quiser outro destino)
+    location = "/admin/dashboard_admin.html";
+}
+
+// ===== LOGOUT =====
+function logout() {
+    localStorage.clear();
+    location = "/";
+}
+
+// ===== POPULAR SELECTS DE MÊS/ANO =====
+const mesSel = document.getElementById("mes");
+const anoSel = document.getElementById("ano");
+const quinzenaSel = document.getElementById("quinzena");
+const msg = document.getElementById("msg");
+const tbodyProd = document.getElementById("tbodyProd");
+
+const cardTotalMes = document.getElementById("cardTotalMes");
+const cardEntregas = document.getElementById("cardEntregas");
+const cardFs       = document.getElementById("cardFs");
+const cardBobina   = document.getElementById("cardBobina");
+const cardDias     = document.getElementById("cardDias");
+const totalResumo  = document.getElementById("totalResumo");
+
+function initFiltros() {
+    const meses = [
+        "01 - Jan", "02 - Fev", "03 - Mar", "04 - Abr",
+        "05 - Mai", "06 - Jun", "07 - Jul", "08 - Ago",
+        "09 - Set", "10 - Out", "11 - Nov", "12 - Dez"
+    ];
+    mesSel.innerHTML = meses.map((m, idx) => {
+        const mesNum = (idx + 1).toString().padStart(2, "0");
+        const sel = (idx === new Date().getMonth()) ? "selected" : "";
+        return `<option value="${mesNum}" ${sel}>${m}</option>`;
+    }).join("");
+
+    const anoAtual = new Date().getFullYear();
+    let anosHtml = "";
+    for (let a = anoAtual - 2; a <= anoAtual + 1; a++) {
+        const sel = (a === anoAtual) ? "selected" : "";
+        anosHtml += `<option value="${a}" ${sel}>${a}</option>`;
+    }
+    anoSel.innerHTML = anosHtml;
+}
+
+// ===== FORMATADOR =====
+function formatMoney(v) {
+    return "R$ " + Number(v || 0).toFixed(2);
+}
+
+// ===== CARREGAR PRODUÇÃO DO COLABORADOR =====
+
+
+// ===== CARREGAR FECHAMENTO QUINZENAL (HISTÓRICO) =====
+async function carregarFechamento(mes, ano, quinzena) {
+    const params = new URLSearchParams({ usuario_id: user.id, mes, ano, quinzena });
+    const resp = await fetch('/api/fechamentos_quinzena?' + params.toString());
+    if (!resp.ok) return null;
+    return await resp.json();
+}
+
+function renderFechamento(f) {
+    // KPIs principais
+    const bruto = Number(f.bruto || 0);
+    const descontoEmp = Number(f.desconto_emprestimo || 0);
+    const liquido = Number(f.liquido || 0);
+    const entregasTotal = Number(f.entregas_total || 0);
+    const dias = Number(f.dias_prestados || 0);
+
+    // reusar cards existentes
+    cardTotalMes.innerText = 'R$ ' + liquido.toFixed(2).replace('.', ',');
+    cardEntregas.innerText = String(entregasTotal);
+    cardDias.innerText = String(dias);
+    totalResumo.innerText = `Bruto: R$ ${bruto.toFixed(2).replace('.', ',')}  |  Desconto empréstimo: R$ ${descontoEmp.toFixed(2).replace('.', ',')}  |  Líquido: R$ ${liquido.toFixed(2).replace('.', ',')}`;
+
+    // Tabela diária
+    const rows = Array.isArray(f.diario) ? f.diario : [];
+    if (!rows.length) {
+        msg.innerText = 'Fechamento encontrado, mas sem diário.';
+        tbodyProd.innerHTML = '';
+        return;
+    }
+    msg.innerText = '';
+
+    let html='';
+    rows.forEach(r=>{
+        const data = (r.data || '').slice(0,10);
+        const qtd = Number(r.quantidade||0);
+        const valorEnt = Number(r.valor_entrega||0);
+        const totalEnt = qtd*valorEnt;
+        const diaria = Number(f.diaria||0);
+        const desc = 0;
+        const totalDia = totalEnt + diaria - desc;
+        html += `
+          <tr>
+            <td>${data}</td>
+            <td>${qtd}</td>
+            <td>R$ ${valorEnt.toFixed(2).replace('.', ',')}</td>
+            <td>R$ ${totalEnt.toFixed(2).replace('.', ',')}</td>
+            <td>R$ ${diaria.toFixed(2).replace('.', ',')}</td>
+            <td>R$ ${desc.toFixed(2).replace('.', ',')}</td>
+            <td><strong>R$ ${totalDia.toFixed(2).replace('.', ',')}</strong></td>
+            <td>${(r.obs||'')||''}</td>
+            <td>-</td>
+          </tr>`;
+    });
+    tbodyProd.innerHTML = html;
+
+    // Chart: total por dia
+    try {
+        if (typeof renderDemoChart === 'function') {
+            // montar lista no mesmo formato esperado: {data,total_calculado}
+            const lista = rows.map(r=>({ data: r.data, total_calculado: (Number(r.quantidade||0)*Number(r.valor_entrega||0)) + Number(f.diaria||0) }));
+            renderDemoChart(lista);
+        }
+    } catch(e) {}
+}
+async function carregar() {
+    msg.innerText = "Carregando...";
+    tbodyProd.innerHTML = "";
+    cardTotalMes.innerText = "R$ 0,00";
+    cardEntregas.innerText = "0";
+    cardFs.innerText = "0 / R$ 0,00";
+    cardBobina.innerText = "0 / R$ 0,00";
+    cardDias.innerText = "0";
+    totalResumo.innerText = "";
+
+    const mes = mesSel.value.substring(0, 2);
+    const ano = anoSel.value;
+    const quinzena = (quinzenaSel && quinzenaSel.value) ? quinzenaSel.value : '';
+
+    // Prioriza histórico (fechamento quinzenal) quando quinzena selecionada
+    if (quinzena) {
+        const f = await carregarFechamento(mes, ano, quinzena);
+        if (f && f.id) {
+            renderFechamento(f);
+            await loadEmprestimosResumo();
+            return;
+        }
+    }
+
+    const params = new URLSearchParams({
+        usuario_id: user.id,
+        mes,
+        ano
+    });
+
+    const resp = await fetch("/api/producao/colaborador?" + params.toString());
+    if (!resp.ok) {
+        msg.innerText = "Erro ao carregar demonstrativo.";
+        return;
+    }
+
+    const lista = await resp.json();
+    msg.innerText = "";
+
+    if (!lista.length) {
+        msg.innerText = "Nenhum lançamento de produção neste período.";
+        return;
+    }
+
+    let totalMes = 0;
+    let totalEntregas = 0;
+    let totalFsQtd = 0;
+    let totalFsVal = 0;
+    let totalBobQtd = 0;
+    let totalBobVal = 0;
+    let totalDias = 0;
+    const diasSet = new Set();
+
+    let html = "";
+    lista.forEach(l => {
+        const dataStr = l.data || "";
+        const entregas = Number(l.entregas || 0);
+        const fsQtd = Number(l.producao_fs || 0);
+        const fsVal = Number(l.valor_fs || 0);
+        const bobQtd = Number(l.producao_bobina || 0);
+        const bobVal = Number(l.valor_bobina || 0);
+        const fixo = Number(l.fixo_diaria || 0);
+        const desc = Number(l.desconto || 0);
+        const totalDia = Number(l.total_calculado || 0);
+
+        totalMes += totalDia;
+        totalEntregas += entregas - (fsQtd + bobQtd);
+        totalFsQtd += fsQtd;
+        totalFsVal += (fsQtd * fsVal);
+        totalBobQtd += bobQtd;
+        totalBobVal += (bobQtd * bobVal);
+        if (dataStr) diasSet.add(dataStr);
+
+        html += `
+        <tr>
+            <td>${dataStr}</td>
+            <td>${entregas - (fsQtd + bobQtd)}</td>
+            <td>${fsQtd} × ${formatMoney(fsVal)}</td>
+            <td>${bobQtd} × ${formatMoney(bobVal)}</td>
+            <td>${formatMoney(fixo)}</td>
+            <td>${formatMoney(desc)}</td>
+            <td>${formatMoney(totalDia)}</td>
+            <td>${l.obs || ""}</td>
+            <td>
+                <input type="file" accept="image/*,application/pdf" style="display:none" id="file_${l.id}">
+                ${
+                    l.nota_status === "pendente"
+                    ? "<span style='color:yellow'>Aguardando análise</span>"
+                    : l.nota_status === "aprovado"
+                    ? "<span style='color:lightgreen'>Aprovada</span>"
+                    : `<button class="btn-upload" style="padding:8px 16px;" onclick="enviarNota(${l.id})">Enviar</button>`
+                }
+            </td>
+
+
+
+        </tr>`;
+    });
+
+    tbodyProd.innerHTML = html;
+
+    totalDias = diasSet.size;
+
+    cardTotalMes.innerText = formatMoney(totalMes);
+    cardEntregas.innerText = totalEntregas;
+    cardFs.innerText = `${totalFsQtd} / ${formatMoney(totalFsVal)}`;
+    cardBobina.innerText = `${totalBobQtd} / ${formatMoney(totalBobVal)}`;
+    cardDias.innerText = totalDias;
+
+    totalResumo.innerText =
+        `Total do mês: ${formatMoney(totalMes)} | ` +
+        `Entregas: ${totalEntregas} | ` +
+        `F simples: ${totalFsQtd} | ` +
+        `Bobina: ${totalBobQtd}`;
+}
+
+// ===== INICIAR =====
+initFiltros();
+    mesSel.addEventListener("change", carregar);
+    anoSel.addEventListener("change", carregar);
+    if (quinzenaSel) quinzenaSel.addEventListener("change", carregar);
+carregar();
+</script>
+
+<script>
+// mobile menu
+document.getElementById('btnMenu')?.addEventListener('click', ()=>{
+  const sb=document.getElementById('sidebar');
+  if(sb) sb.classList.toggle('open');
+});
+
+  window._demoChart = null;
+  function computeDemoKpis(linhas){
+    let total=0, entregas=0;
+    const days=set();
+    for(const l of linhas){
+      total += Number(l.total_dia||l.total||0);
+      entregas += Number(l.entregas||0);
+      if(l.data) days.add(String(l.data).slice(0,10));
+    }
+    document.getElementById('kpiTotal') && (document.getElementById('kpiTotal').textContent = fmtBRL(total));
+    document.getElementById('kpiEntregas') && (document.getElementById('kpiEntregas').textContent = String(entregas));
+    document.getElementById('kpiDias') && (document.getElementById('kpiDias').textContent = String(days.size));
+  }
+
+  function groupDemoByDay(linhas){
+    const out={};
+    for(const l of linhas){
+      const d = parseISODateOnly(l.data);
+      if(!d) continue;
+      const k=String(d.day).padStart(2,'0');
+      out[k]=(out[k]||0)+Number(l.total_dia||l.total||0);
+    }
+    const labels=Object.keys(out).sort();
+    const values=labels.map(k=>out[k]);
+    return {labels, values};
+  }
+
+  function renderDemoChart(linhas){
+    const el=document.getElementById('demoChart');
+    if(!el) return;
+    const {labels, values}=groupDemoByDay(linhas);
+    const ctx=el.getContext('2d');
+    if(window._demoChart) window._demoChart.destroy();
+    window._demoChart=new Chart(ctx,{
+      type:'bar',
+      data:{labels, datasets:[{label:'Total (R$)', data:values, backgroundColor:'#F6C21B'}]},
+      options:{
+        responsive:true,
+        plugins:{ tooltip:{ callbacks:{ label:(i)=> fmtBRL(i.raw) } } },
+        onClick:(evt, els)=>{
+          if(!els?.length) return;
+          const day=labels[els[0].index];
+          // highlight by adding a chip
+          const af=document.getElementById('activeFilters');
+          if(af) af.textContent = `Dia: ${day}`;
+        }
+      }
+    });
+  }
+
+  document.getElementById('btnExportDemo')?.addEventListener('click', ()=>{
+    const linhas = window._linhasDemo || [];
+    const out = linhas.map(l=>({
+      data:l.data,
+      entregas:l.entregas,
+      fs:l.fs,
+      bobina:l.bobina,
+      fixo:l.fixo,
+      desconto:l.desconto,
+      total:l.total_dia||l.total,
+      obs:l.obs||l.observacoes||'',
+      nota_status:l.nota_status||''
+    }));
+    downloadCSV('demonstrativo.csv', out);
+  });
+
+
+</html>

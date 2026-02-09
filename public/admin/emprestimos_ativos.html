@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Empréstimos Ativos • Admin</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <script src="/js/ui-common.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+</head>
+<body>
+  <div id="sidebar-container"></div>
+
+  <header class="mobile-topbar">
+    <button class="icon-btn" id="btnToggleSidebar" aria-label="Abrir menu">☰</button>
+    <div class="brand">CoelhoLog • Admin</div>
+    <div class="spacer"></div>
+  </header>
+
+  <main class="main">
+    <div class="page-header">
+      <h1>Empréstimos Ativos</h1>
+      <div class="muted">Acompanhe parcelas pendentes, aplicadas e saldo estimado por colaborador.</div>
+    </div>
+
+    <section class="card">
+      <div class="filter-row" style="display:flex;gap:12px;flex-wrap:wrap;align-items:end">
+        <div style="min-width:240px">
+          <label class="label">Colaborador</label>
+          <select id="fUsuario" class="input"></select>
+        </div>
+        <div style="min-width:160px">
+          <label class="label">Status do empréstimo</label>
+          <select id="fStatus" class="input">
+            <option value="">Todos</option>
+            <option value="Aprovado" selected>Aprovado</option>
+            <option value="Em análise">Em análise</option>
+            <option value="Quitado">Quitado</option>
+            <option value="Recusado">Recusado</option>
+          </select>
+        </div>
+        <div style="min-width:180px">
+          <label class="label">Competência (ano)</label>
+          <select id="fAno" class="input"></select>
+        </div>
+        <div style="min-width:180px">
+          <label class="label">Competência (mês)</label>
+          <select id="fMes" class="input"></select>
+        </div>
+        <div style="min-width:160px">
+          <label class="label">Quinzena</label>
+          <select id="fQuinzena" class="input">
+            <option value="">Todas</option>
+            <option value="1">01–15</option>
+            <option value="2">16–fim</option>
+          </select>
+        </div>
+        <div>
+          <button class="btn" id="btnAtualizar">Atualizar</button>
+        </div>
+        <div style="margin-left:auto">
+          <button class="btn btn-outline" id="btnExport">Exportar CSV</button>
+        </div>
+      </div>
+      <div id="msg" class="muted" style="margin-top:10px"></div>
+    </section>
+
+    <section class="top-cards" style="margin-top:14px">
+      <div class="kpi-card"><div class="kpi-title">Total emprestado (ativos)</div><div class="kpi-value" id="kTotalEmp">R$ 0,00</div></div>
+      <div class="kpi-card"><div class="kpi-title">Total descontado (aplicado)</div><div class="kpi-value" id="kTotalDesc">R$ 0,00</div></div>
+      <div class="kpi-card"><div class="kpi-title">Saldo estimado</div><div class="kpi-value" id="kSaldo">R$ 0,00</div></div>
+      <div class="kpi-card"><div class="kpi-title">Parcelas pendentes</div><div class="kpi-value" id="kPend">0</div></div>
+      <div class="kpi-card"><div class="kpi-title">Parcelas aplicadas</div><div class="kpi-value" id="kApl">0</div></div>
+    </section>
+
+    <section class="card" style="margin-top:14px">
+      <h2 style="margin:0 0 10px 0">Visão por competência</h2>
+      <canvas id="chart" height="90"></canvas>
+    </section>
+
+    <section class="card" style="margin-top:14px">
+      <h2 style="margin:0 0 10px 0">Detalhamento</h2>
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Colaborador</th>
+              <th>ID Empréstimo</th>
+              <th>Valor</th>
+              <th>Parcelas</th>
+              <th>Status</th>
+              <th>Pendentes</th>
+              <th>Aplicadas</th>
+              <th>Saldo</th>
+              <th>Próx. competência</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+  // proteção simples (mantém padrão do projeto)
+  const raw = localStorage.getItem('user') || localStorage.getItem('usuario');
+  const user = raw ? JSON.parse(raw) : null;
+  if (!user || !['admin','financeiro'].includes(user.role)) {
+    window.location.href = '/';
+  }
+
+  function fmtBRL(v){
+    const n = Number(v||0);
+    return 'R$ ' + n.toFixed(2).replace('.', ',');
+  }
+
+  let _chart;
+
+  async function loadSidebar(){
+    try{
+      const r = await fetch('/components/sidebar_admin_collapsible.html');
+      document.getElementById('sidebar-container').innerHTML = await r.text();
+      if (window.initAdminSidebar) window.initAdminSidebar();
+    }catch(e){}
+  }
+
+  function fillAnoMes(){
+    const ano = document.getElementById('fAno');
+    const mes = document.getElementById('fMes');
+    const now = new Date();
+    const y = now.getFullYear();
+    ano.innerHTML = Array.from({length:5}).map((_,i)=>{
+      const v = y-2+i;
+      const sel = v===y ? 'selected' : '';
+      return `<option value="${v}" ${sel}>${v}</option>`;
+    }).join('');
+    const meses = ['01 - Jan','02 - Fev','03 - Mar','04 - Abr','05 - Mai','06 - Jun','07 - Jul','08 - Ago','09 - Set','10 - Out','11 - Nov','12 - Dez'];
+    mes.innerHTML = meses.map((m,i)=>{
+      const v = String(i+1).padStart(2,'0');
+      const sel = i===now.getMonth() ? 'selected' : '';
+      return `<option value="${v}" ${sel}>${m}</option>`;
+    }).join('');
+  }
+
+  async function loadUsuarios(){
+    const sel = document.getElementById('fUsuario');
+    sel.innerHTML = `<option value="">Todos</option>`;
+    const r = await fetch('/api/usuarios');
+    const all = await r.json();
+    const cols = all.filter(u=>u.role==='colaborador');
+    sel.innerHTML += cols.map(u=>`<option value="${u.id}">${u.nome}</option>`).join('');
+  }
+
+  function exportCSV(rows){
+    const header = ['colaborador','emprestimo_id','valor','parcelas','status','pendentes','aplicadas','saldo','prox_competencia'];
+    const lines = [header.join(';')];
+    rows.forEach(r=>{
+      const line = header.map(k=>String(r[k]??'').replaceAll(';',','));
+      lines.push(line.join(';'));
+    });
+    const blob = new Blob([lines.join('\n')], {type:'text/csv;charset=utf-8'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'emprestimos_ativos.csv';
+    a.click();
+  }
+
+  function renderChart(serie){
+    const ctx = document.getElementById('chart');
+    const labels = serie.map(s=>s.label);
+    const pend = serie.map(s=>s.pendentes);
+    const apl = serie.map(s=>s.aplicadas);
+    if (_chart) _chart.destroy();
+    _chart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label:'Pendentes', data: pend, backgroundColor:'rgba(255,193,7,0.35)', borderColor:'#ffc107', borderWidth:1 },
+          { label:'Aplicadas', data: apl, backgroundColor:'rgba(0,255,174,0.25)', borderColor:'#00ffae', borderWidth:1 }
+        ]
+      },
+      options:{ responsive:true, plugins:{ legend:{labels:{color:'#cbd5e1'}} }, scales:{ x:{ticks:{color:'#cbd5e1'}}, y:{ticks:{color:'#cbd5e1'}} } }
+    });
+  }
+
+  async function carregar(){
+    const msg = document.getElementById('msg');
+    msg.textContent = 'Carregando...';
+
+    const usuario_id = document.getElementById('fUsuario').value;
+    const status = document.getElementById('fStatus').value;
+    const ano = document.getElementById('fAno').value;
+    const mes = document.getElementById('fMes').value;
+    const quinzena = document.getElementById('fQuinzena').value;
+
+    const qs = new URLSearchParams();
+    if (usuario_id) qs.set('usuario_id', usuario_id);
+    if (ano && mes && quinzena) {
+      qs.set('ano', ano); qs.set('mes', mes); qs.set('quinzena', quinzena);
+    }
+
+    // Emprestimos (cabeçalho) + resumo parcelas (por usuario)
+    const rEmp = await fetch('/api/emprestimos' + (usuario_id ? ('?user_id=' + usuario_id) : ''));
+    const emprestimos = await rEmp.json();
+    const ativos = emprestimos.filter(e=> !status || e.status===status);
+
+    // Parcelas (opcionalmente filtradas por competência)
+    const rParc = await fetch('/api/emprestimos/parcelas?' + qs.toString());
+    const parcelas = await rParc.json();
+
+    // agregações
+    const byEmp = new Map();
+    ativos.forEach(e=>{
+      byEmp.set(e.id, { emprestimo:e, pendentes:0, aplicadas:0, saldo: Number(e.valor||0), prox:'' });
+    });
+
+    parcelas.forEach(p=>{
+      if (!byEmp.has(p.emprestimo_id)) return;
+      const x = byEmp.get(p.emprestimo_id);
+      if (p.status==='aplicada') x.aplicadas += 1;
+      else x.pendentes += 1;
+      if (p.status==='aplicada') x.saldo -= Number(p.valor_parcela||0);
+      if (p.status!=='aplicada') x.prox = x.prox || `${String(p.mes).padStart(2,'0')}/${p.ano} Q${p.quinzena}`;
+    });
+
+    // KPIs
+    let totalEmp = 0, totalDesc=0, saldo=0, pend=0, apl=0;
+    const rows=[];
+    byEmp.forEach(x=>{
+      const e = x.emprestimo;
+      totalEmp += Number(e.valor||0);
+      saldo += Number(x.saldo||0);
+      pend += x.pendentes;
+      apl += x.aplicadas;
+      totalDesc += (Number(e.valor||0) - Number(x.saldo||0));
+      rows.push({
+        colaborador: e.nome || e.colaborador || '',
+        emprestimo_id: e.id,
+        valor: fmtBRL(e.valor),
+        parcelas: e.parcelamentos,
+        status: e.status,
+        pendentes: x.pendentes,
+        aplicadas: x.aplicadas,
+        saldo: fmtBRL(x.saldo),
+        prox_competencia: x.prox
+      });
+    });
+
+    document.getElementById('kTotalEmp').textContent = fmtBRL(totalEmp);
+    document.getElementById('kTotalDesc').textContent = fmtBRL(totalDesc);
+    document.getElementById('kSaldo').textContent = fmtBRL(saldo);
+    document.getElementById('kPend').textContent = String(pend);
+    document.getElementById('kApl').textContent = String(apl);
+
+    // tabela
+    const tbody = document.getElementById('tbody');
+    tbody.innerHTML = rows.map(r=>`
+      <tr>
+        <td>${r.colaborador}</td>
+        <td>#${r.emprestimo_id}</td>
+        <td>${r.valor}</td>
+        <td>${r.parcelas}</td>
+        <td><span class="badge">${r.status}</span></td>
+        <td>${r.pendentes}</td>
+        <td>${r.aplicadas}</td>
+        <td><strong>${r.saldo}</strong></td>
+        <td>${r.prox_competencia}</td>
+      </tr>
+    `).join('');
+
+    // chart por competência (do filtro atual)
+    const serie = [];
+    if (ano && mes) {
+      const labels = ['Q1','Q2'];
+      labels.forEach((lab,i)=>{
+        const q = i+1;
+        const filt = parcelas.filter(p=> String(p.ano)==String(ano) && String(p.mes).padStart(2,'0')==String(mes).padStart(2,'0') && String(p.quinzena)==String(q));
+        serie.push({ label: `${mes}/${ano} ${lab}`, pendentes: filt.filter(p=>p.status!=='aplicada').length, aplicadas: filt.filter(p=>p.status==='aplicada').length });
+      });
+    }
+    renderChart(serie);
+
+    msg.textContent = '';
+
+    document.getElementById('btnExport').onclick = ()=> exportCSV(rows);
+  }
+
+  (async function init(){
+    await loadSidebar();
+    fillAnoMes();
+    await loadUsuarios();
+    document.getElementById('btnAtualizar').addEventListener('click', carregar);
+    carregar();
+  })();
+  </script>
+</body>
+</html>

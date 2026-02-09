@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Registrar SLA</title>
+<link rel="stylesheet" href="/css/style.css">
+
+<style>
+body {
+    background: #071a2b;
+    color: #fff;
+}
+
+.card {
+    background: #0d2040;
+    padding: 30px;
+    border-radius: 14px;
+    max-width: 900px;
+    margin: 40px auto;
+    box-shadow: 0 0 15px rgba(0,0,0,0.3);
+}
+
+input, select {
+    width: 100%;
+    padding: 14px;
+    margin-bottom: 18px;
+    background: #0c1b33;
+    border: 1px solid #123;
+    border-radius: 10px;
+    color: #fff;
+    outline: none;
+    font-size: 15px;
+}
+
+input::placeholder {
+    color: #9bb0c9;
+}
+
+.btn {
+    background: #ffd34f;
+    color: #000;
+    padding: 12px 22px;
+    border-radius: 10px;
+    border: none;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.btn:hover {
+    background: #ffcc33;
+}
+
+table {
+    width: 100%;
+    margin-top: 20px;
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: 14px;
+    border-bottom: 1px solid #123;
+}
+</style>
+</head>
+
+<body>
+
+<div id="sidebar-container"></div>
+
+<main>
+<div class="card">
+
+    <h1>Registrar SLA da Campanha</h1>
+    <p>Registre o SLA semanal da campanha ativa.</p>
+
+    <label>Campanha Ativa</label>
+    <select id="campanha"></select>
+
+    <label>Semana da Campanha*</label>
+    <select id="semana">
+        <option value="Semana 1">Semana 1</option>
+        <option value="Semana 2">Semana 2</option>
+        <option value="Semana 3">Semana 3</option>
+        <option value="Semana 4">Semana 4</option>
+    </select>
+
+    <label>SLA (%) *</label>
+    <input type="number" id="sla" placeholder="Ex: 96">
+
+    <button class="btn" onclick="registrarSLA()">Registrar SLA</button>
+
+    <hr style="margin: 30px 0; border-color: #123;">
+
+    <h2>Histórico de SLA</h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Semana</th>
+                <th>SLA (%)</th>
+                <th>Registrado Em</th>
+            </tr>
+        </thead>
+        <tbody id="listaSLA"></tbody>
+    </table>
+
+</div>
+</main>
+
+<script>
+
+// Sidebar
+fetch('/admin/sidebar_admin.html')
+  .then(r => r.text())
+  .then(html => document.getElementById("sidebar-container").innerHTML = html);
+
+// Carregar campanha ativa
+async function carregarCampanhaAtiva() {
+    const res = await fetch("/api/campanhas/ativa");
+    const c = await res.json();
+
+    if (!c || !c.id) {
+        campanha.innerHTML = "<option>Nenhuma campanha ativa</option>";
+        return;
+    }
+
+    campanha.innerHTML = `<option value="${c.id}">${c.nome}</option>`;
+}
+
+// Registrar SLA
+async function registrarSLA() {
+    const payload = {
+        campanha_id: campanha.value,
+        periodo: semana.value,          // CORRIGIDO
+        sla_percentual: sla.value       // CORRIGIDO
+    };
+
+    await fetch("/api/campanha/sla/registrar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+    });
+
+    alert("SLA registrado com sucesso!");
+    carregarHistorico();
+}
+
+// Carregar histórico de SLA
+async function carregarHistorico() {
+    const active = await fetch("/api/campanhas/ativa").then(r => r.json());
+    if (!active?.id) return;
+
+    const res = await fetch(`/api/campanha/sla/listar?campanha_id=${active.id}`);
+    const lista = await res.json();
+
+    listaSLA.innerHTML = "";
+
+    lista.forEach(s => {
+        listaSLA.innerHTML += `
+            <tr>
+                <td>${s.periodo}</td>
+                <td>${s.sla_percentual}%</td>
+                <td>${s.criado_em}</td>
+            </tr>
+        `;
+    });
+}
+
+// Inicializar
+carregarCampanhaAtiva();
+carregarHistorico();
+
+</script>
+
+</body>
+</html>

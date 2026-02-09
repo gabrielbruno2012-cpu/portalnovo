@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Registrar Pontos</title>
+<link rel="stylesheet" href="/css/style.css">
+
+<style>
+body {
+    background: #071a2b;
+    color: #fff;
+}
+
+.card {
+    background: #0d2040;
+    padding: 30px;
+    border-radius: 14px;
+    max-width: 900px;
+    margin: 40px auto;
+    box-shadow: 0 0 15px rgba(0,0,0,0.3);
+}
+
+input, select {
+    width: 100%;
+    padding: 14px;
+    margin-bottom: 18px;
+    background: #0c1b33;
+    border: 1px solid #123;
+    border-radius: 10px;
+    color: #fff;
+    outline: none;
+    font-size: 15px;
+}
+
+input::placeholder {
+    color: #9bb0c9;
+}
+
+.btn {
+    background: #ffd34f;
+    color: #000;
+    padding: 12px 22px;
+    border-radius: 10px;
+    border: none;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.btn:hover {
+    background: #ffcc33;
+}
+
+.action {
+    padding: 8px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    border: none;
+}
+
+.edit {
+    background: #34d16e;
+    color: #000;
+}
+
+.del {
+    background: #ff5555;
+    color: #000;
+}
+
+table {
+    width: 100%;
+    margin-top: 20px;
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: 14px;
+    border-bottom: 1px solid #123;
+}
+</style>
+</head>
+
+<body>
+
+<div id="sidebar-container"></div>
+
+<main>
+<div class="card">
+
+    <h1>Registrar Pontos</h1>
+    <p>Registre pontos semanais para os colaboradores.</p>
+
+    <label>Campanha Ativa</label>
+    <select id="campanha"></select>
+
+    <label>Colaborador*</label>
+    <select id="usuario"></select>
+
+    <label>Semana da Campanha*</label>
+    <select id="semana">
+        <option value="Semana 1">Semana 1</option>
+        <option value="Semana 2">Semana 2</option>
+        <option value="Semana 3">Semana 3</option>
+        <option value="Semana 4">Semana 4</option>
+    </select>
+
+    <label>Pontos*</label>
+    <input type="number" id="pontos" placeholder="Ex: 120">
+
+    <label>Motivo*</label>
+    <input type="text" id="motivo" placeholder="Ex: Performance Semanal">
+
+    <button class="btn" onclick="registrarPontos()">Registrar Pontos</button>
+
+    <hr style="margin: 30px 0; border-color:#123;">
+
+    <h2>Pontos Registrados</h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Colaborador</th>
+                <th>Semana</th>
+                <th>Pontos</th>
+                <th>Motivo</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody id="listaPontos"></tbody>
+    </table>
+
+</div>
+</main>
+
+<script>
+// Sidebar
+fetch('/admin/sidebar_admin.html')
+  .then(r => r.text())
+  .then(html => document.getElementById("sidebar-container").innerHTML = html);
+
+// Carregar campanha ativa
+async function carregarCampanha(){
+    const c = await fetch("/api/campanhas/ativa").then(r=>r.json());
+    campanha.innerHTML = `<option value="${c.id}">${c.nome}</option>`;
+}
+
+// Carregar colaboradores
+async function carregarUsuarios(){
+    const lista = await fetch("/api/usuarios/listar").then(r=>r.json());
+    usuario.innerHTML = "";
+
+    lista.forEach(u => {
+        usuario.innerHTML += `<option value="${u.id}">${u.nome}</option>`;
+    });
+}
+
+// Registrar pontos
+async function registrarPontos(){
+    const payload = {
+        courier_id: usuario.value,
+        campanha_id: campanha.value,
+        periodo: semana.value,
+        pontos: pontos.value,
+        motivo: motivo.value
+    };
+
+    await fetch("/api/incentivos/pontos/registrar", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify(payload)
+    });
+
+    alert("Pontos registrados!");
+    carregarTabela();
+}
+
+// Carregar tabela
+async function carregarTabela(){
+    const c = await fetch("/api/campanhas/ativa").then(r=>r.json());
+    const lista = await fetch(`/api/incentivos/pontos/listar?campanha_id=${c.id}`).then(r=>r.json());
+
+    listaPontos.innerHTML = "";
+
+    lista.forEach(p => {
+        listaPontos.innerHTML += `
+            <tr>
+                <td>${p.nome}</td>
+                <td>${p.periodo}</td>
+                <td>${p.pontos}</td>
+                <td>${p.motivo}</td>
+                <td>
+                    <button class="action edit" onclick="editar(${p.id})">Editar</button>
+                    <button class="action del" onclick="excluir(${p.id})">Excluir</button>
+                </td>
+            </tr>
+        `;
+    });
+}
+
+// Editar pontos
+async function editar(id){
+    const novoValor = prompt("Novo valor de pontos:");
+    if(!novoValor) return;
+
+    await fetch("/api/incentivos/pontos/editar", {
+        method:"PUT",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ id, pontos: novoValor })
+    });
+
+    carregarTabela();
+}
+
+// Excluir registro
+async function excluir(id){
+    if(!confirm("Deseja excluir este registro?")) return;
+
+    await fetch(`/api/incentivos/pontos/excluir/${id}`, {
+        method:"DELETE"
+    });
+
+    carregarTabela();
+}
+
+// Inicializar
+carregarCampanha();
+carregarUsuarios();
+carregarTabela();
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,154 @@
+<html>
+<head>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<script>
+const uStr = localStorage.getItem("usuario");
+let u = null;
+try { u = uStr ? JSON.parse(uStr) : null; } catch(e){ u = null; }
+
+if (!u) {
+  window.location.href = "/";
+} else if (u.role !== "financeiro" && u.role !== "admin") {
+  window.location.href = "/colaborador/dashboard.html";
+}
+</script>
+
+
+<script>
+// Proteção de acesso
+if (!localStorage.getItem("usuario")) location.href = "/";
+</script>
+
+<div id="sidebar"></div>
+
+<div class="main">
+    <div class="header-right">
+        <button class="btn" onclick="localStorage.clear();location='/'">Logout</button>
+    </div>
+
+    <h1>Alterar Empréstimos</h1>
+
+    <table class="table" id="lista"></table>
+</div>
+
+<script>
+// Carregar sidebar
+fetch('/admin/sidebar_admin.html')
+    .then(r => r.text())
+    .then(h => sidebar.innerHTML = h);
+
+// Formatação de moeda
+function fmt(n) {
+    return "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 });
+}
+
+async function load() {
+    let emp = await fetch('/api/emprestimos').then(r => r.json());
+
+    // Mostrar somente empréstimos ainda em análise ou aprovados
+    emp = emp.filter(e => e.status == "Em análise" || e.status == "Aprovado");
+
+    let html = `
+        <tr>
+            <th>ID</th>
+            <th>Usuário</th>
+            <th>Valor</th>
+            <th>Parcelas</th>
+            <th>Status</th>
+            <th>Ação</th>
+        </tr>
+    `;
+
+    emp.forEach(e => {
+        html += `
+            <tr id="row${e.id}">
+                <input type="hidden" id="row_uid${e.id}" value="${e.usuario_id}">
+
+                <td>${e.id}</td>
+                <td>${e.nome}</td>
+
+                <td>
+                    <input type="number" step="0.01" class="input" id="valor${e.id}" value="${e.valor}">
+                </td>
+
+                <td>
+                    <input type="number" min="1" class="input" id="parc${e.id}" value="${e.parcelamentos}">
+                </td>
+
+                <td>
+                    <select id="st${e.id}" class="input">
+                        <option ${e.status == "Em análise" ? "selected" : ""}>Em análise</option>
+                        <option ${e.status == "Aprovado" ? "selected" : ""}>Aprovado</option>
+                        <option ${e.status == "Pago" ? "selected" : ""}>Pago</option>
+                        <option ${e.status == "Negado" ? "selected" : ""}>Negado</option>
+                    </select>
+                </td>
+
+                <td>
+                    <button class="btn" onclick="save(${e.id})">Salvar</button>
+                </td>
+            </tr>
+        `;
+    });
+
+    lista.innerHTML = html;
+}
+
+async function save(id) {
+    let valor = document.getElementById("valor" + id).value;
+    let parcelamentos = document.getElementById("parc" + id).value;
+    let status = document.getElementById("st" + id).value;
+    let usuario_id = document.getElementById("row_uid" + id).value;
+
+    // Atualiza empréstimo
+    const res = await fetch("/api/emprestimos/" + id, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ valor, parcelamentos, status })
+    });
+
+    if (!res.ok) {
+        alert("Erro ao atualizar!");
+        return;
+    }
+
+    // 🔵 Status "Aprovado" → não some da tabela
+    if (status === "Aprovado") {
+        alert("Empréstimo aprovado!");
+        return;
+    }
+
+    // 🔵 Status "Pago" → subir como recebível
+    if (status === "Pago") {
+
+        await fetch("/api/recebiveis", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                usuario_id: usuario_id,
+                valor: valor,
+                tipo: "Empréstimo",
+                status: "Pendente"
+            })
+        });
+
+        // Remove da tabela sem recarregar página
+        const tr = document.getElementById("row" + id);
+        if (tr) tr.remove();
+
+        alert("Empréstimo pago e lançado nos recebíveis!");
+    }
+
+    // Negado → apenas mantém e mostra mensagem
+    if (status === "Negado") {
+        alert("Empréstimo negado!");
+    }
+}
+
+load();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sidebar Admin</title>
+
+<style>
+    body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+    }
+
+    .sidebar {
+        width: 240px;
+        height: 100vh;
+        background: #062447; /* Azul CoelhoLog */
+        color: #fff;
+        padding-top: 30px;
+        position: fixed;
+        left: 0;
+        top: 0;
+        box-shadow: 4px 0 10px rgba(0,0,0,0.2);
+    }
+
+    .menu-item {
+        padding: 14px 20px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 16px;
+        cursor: pointer;
+        transition: 0.2s;
+    }
+
+    .menu-item:hover {
+        background: #0A3A73;
+    }
+
+    .icon {
+        font-size: 20px;
+        width: 24px;
+        display: flex;
+        justify-content: center;
+    }
+
+    a {
+        text-decoration: none;
+        color: inherit;
+    }
+</style>
+</head>
+
+<body>
+
+<div class="sidebar">
+
+    <a href="dashboard_admin.html">
+        <div class="menu-item">
+            <div class="icon">📊</div>
+            <span>Dashboard</span>
+        </div>
+    </a>
+
+    <a href="alterar_recebiveis.html">
+        <div class="menu-item">
+            <div class="icon">💰</div>
+            <span>Alterar Recebíveis</span>
+        </div>
+    </a>
+
+    <a href="alterar_emprestimos.html">
+        <div class="menu-item">
+            <div class="icon">💳</div>
+            <span>Alterar Empréstimos</span>
+        </div>
+    </a>
+
+    <a href="criar_colaborador.html">
+        <div class="menu-item">
+            <div class="icon">👤</div>
+            <span>Criar Colaborador</span>
+        </div>
+    </a>
+
+    <a href="lancar_recebiveis.html">
+        <div class="menu-item">
+            <div class="icon">➕</div>
+            <span>Lançar Recebível</span>
+        </div>
+    </a>
+
+    <a href="lancar_producao.html">
+        <div class="menu-item">
+            <div class="icon">➕</div>
+            <span>Lançar Produção</span>
+        </div>
+    </a>
+    
+    <a href="admin_producao_status.html">
+        <div class="menu-item">
+            <div class="icon">💵</div>
+            <span>Aprovar / Reprovar </span>
+        </div>
+    </a>
+    
+    </a>
+
+    <a href="todos_emprestimos.html">
+        <div class="menu-item">
+            <div class="icon">📋</div>
+            <span>Todos Empréstimos</span>
+        </div>
+    </a>
+    
+    <a href="producoes_admin.html">
+        <div class="menu-item">
+            <div class="icon">📋</div>
+            <span>Todas Produções</span>
+        </div>
+    </a>
+    
+     <a href="criar_campanha.html">
+        <div class="menu-item">
+            <div class="icon">🔧</div>
+            <span>Criar Campanha</span>
+        </div>
+    </a>
+
+     <a href="registrar_sla.html">
+        <div class="menu-item">
+            <div class="icon">⏱</div>
+            <span>Registrar SLA</span>
+        </div>
+    </a>
+
+     <a href="registrar_bonus.html">
+        <div class="menu-item">
+            <div class="icon">🎁</div>
+            <span>Registrar Bônus</span>
+        </div>
+    </a>
+
+     <a href="registrar_pontos.html">
+        <div class="menu-item">
+            <div class="icon">📈</div>
+            <span>Registrar Pontos</span>
+        </div>
+    </a>
+
+</div>
+
+</body>
+</html>

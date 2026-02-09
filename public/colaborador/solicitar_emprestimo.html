@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Solicitar Empréstimo</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <script src="/js/ui-common.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+  <script>
+    if (localStorage.getItem('usuario') && !localStorage.getItem('user')) {
+      localStorage.setItem('user', localStorage.getItem('usuario'));
+    }
+  </script>
+
+  <div class="mobile-topbar">
+    <button class="btn btn-secondary" id="btnMenu">Menu</button>
+    <div class="small" id="periodLabel">Empréstimo</div>
+    <button class="btn" onclick="logoutEverywhere()">Sair</button>
+  </div>
+
+  <div id="sidebar-container"></div>
+
+  <main class="main">
+
+    <div class="header-right">
+      <button class="btn" onclick="logoutEverywhere()">Logout</button>
+    </div>
+
+    <h1>Solicitar Empréstimo</h1>
+
+    <div class="top-cards" style="margin-top:12px" id="simKpis">
+      <div class="top-card">
+        <div class="small">Parcela estimada</div>
+        <div class="kpi-value" id="kpiParcela">—</div>
+      </div>
+      <div class="top-card">
+        <div class="small">Total estimado</div>
+        <div class="kpi-value" id="kpiTotal">—</div>
+      </div>
+      <div class="top-card">
+        <div class="small">Taxa</div>
+        <div class="kpi-value" id="kpiTaxa">0%</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <div class="row" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div>
+          <h2 style="margin:0">Simulação rápida</h2>
+          <div class="small">Prévia visual das parcelas (estimativa)</div>
+        </div>
+      </div>
+      <div class="chart-wrap" style="margin-top:12px">
+        <canvas id="simChart"></canvas>
+      </div>
+      <div class="small" style="margin-top:8px;opacity:.9">*Simulação apenas para UX. O valor final é definido pelo Financeiro.</div>
+    </div>
+
+
+    <div class="card">
+      <div class="small">Valor (R$)</div>
+      <input id="valor" class="input" type="number" step="0.01" placeholder="Ex.: 500" />
+
+      <div style="height:12px"></div>
+
+      <div class="small">Parcelas</div>
+      <select id="parcelas" class="input">
+        <option value="1">1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+        <option value="5">5</option>
+        <option value="6">6</option>
+      </select>
+
+      <div style="height:16px"></div>
+
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn" id="btnSolicitar">Solicitar</button>
+        <a class="btn btn-secondary" href="/colaborador/status_emprestimos.html">Ver status</a>
+      </div>
+
+      <div style="height:12px"></div>
+      <div id="msg" class="small"></div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0 0 10px 0;">Regras rápidas</h3>
+      <ul class="small" style="margin:0; padding-left:18px;">
+        <li>Você não pode ter mais de um empréstimo ativo (Em análise/Aprovado).</li>
+        <li>Após solicitar, acompanhe em “Ver status”.</li>
+      </ul>
+    </div>
+
+  </main>
+
+<script>
+  fetch('/components/sidebar_colaborador.html')
+    .then(r=>r.text())
+    .then(html=>document.getElementById('sidebar-container').innerHTML=html);
+
+  document.getElementById('btnMenu').addEventListener('click', ()=>{
+    const sb=document.getElementById('sidebar');
+    if(sb) sb.classList.toggle('open');
+  });
+
+  const user = enforceAuthOrRedirect(['colaborador','admin','financeiro']);
+
+  function setMsg(text, kind){
+    const el=document.getElementById('msg');
+    el.textContent=text || '';
+    if(kind==='ok') el.style.color = '#cfe8ff';
+    else if(kind==='err') el.style.color = '#ffb4b4';
+    else el.style.color = '';
+  }
+
+  async function solicitar(){
+    if(!user) return;
+
+    const btn=document.getElementById('btnSolicitar');
+    btn.disabled=true;
+    btn.textContent='Enviando...';
+    setMsg('', '');
+
+    const valor = Number(document.getElementById('valor').value || 0);
+    const parcelas = Number(document.getElementById('parcelas').value || 1);
+
+    if(!valor || valor <= 0){
+      setMsg('Informe um valor válido.', 'err');
+      btn.disabled=false; btn.textContent='Solicitar';
+      return;
+    }
+
+    try{
+      const chk = await fetch('/api/emprestimos?user_id='+user.id);
+      const rows = await chk.json();
+      if(Array.isArray(rows) && rows.find(r => String(r.status||'')==='Em análise' || String(r.status||'')==='Aprovado')){
+        setMsg('Você já possui um empréstimo ativo.', 'err');
+        btn.disabled=false; btn.textContent='Solicitar';
+        return;
+      }
+
+      const res = await fetch('/api/emprestimos', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ usuario_id: user.id, valor, parcelamentos: parcelas })
+      });
+
+      if(res.ok){
+        setMsg('Solicitação enviada com sucesso! Acompanhe em “Ver status”.', 'ok');
+        document.getElementById('valor').value='';
+        document.getElementById('parcelas').value='1';
+      }else{
+        const txt = await res.text().catch(()=> '');
+        setMsg('Erro ao solicitar. ' + (txt || ''), 'err');
+      }
+
+    }catch(e){
+      console.error(e);
+      setMsg('Erro de conexão com o servidor.', 'err');
+    }finally{
+      btn.disabled=false;
+      btn.textContent='Solicitar';
+    }
+  }
+
+  document.getElementById('btnSolicitar').addEventListener('click', solicitar);
+
+  window._simChart=null;
+  function parseBRL(v){
+    if(!v) return 0;
+    v=String(v).replace(/[^0-9,\.]/g,'').replace(/\./g,'').replace(',', '.');
+    const n=Number(v);
+    return isFinite(n)?n:0;
+  }
+  function updateSim(){
+    const valor=parseBRL(document.getElementById('valor')?.value);
+    const parcelas=Number(document.getElementById('parcelas')?.value||1);
+    // estimativa UX: 0% taxa (mantém simples, sem prometer juros)
+    const total=valor;
+    const parcela = parcelas? (total/parcelas) : total;
+
+    document.getElementById('kpiParcela') && (document.getElementById('kpiParcela').textContent = fmtBRL(parcela));
+    document.getElementById('kpiTotal') && (document.getElementById('kpiTotal').textContent = fmtBRL(total));
+    document.getElementById('kpiTaxa') && (document.getElementById('kpiTaxa').textContent = '0%');
+
+    const el=document.getElementById('simChart');
+    if(!el) return;
+    const labels=Array.from({length:parcelas},(_,i)=>`Parcela ${i+1}`);
+    const data=labels.map(()=>Number(parcela.toFixed(2)));
+    const ctx=el.getContext('2d');
+    if(window._simChart) window._simChart.destroy();
+    window._simChart=new Chart(ctx,{
+      type:'bar',
+      data:{labels,datasets:[{label:'Valor (R$)', data, backgroundColor:'#F6C21B'}]},
+      options:{responsive:true, plugins:{tooltip:{callbacks:{label:(i)=>fmtBRL(i.raw)}}}}
+    });
+  }
+  document.getElementById('valor')?.addEventListener('input', updateSim);
+  document.getElementById('parcelas')?.addEventListener('change', updateSim);
+  window.addEventListener('load', updateSim);
+
+
+</html>

@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Fechar Quinzena • Admin</title>
+
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/js/ui-common.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="mobile-topbar">
+    <button class="btn btn-secondary" id="btnMenu">Menu</button>
+    <div class="small" id="periodLabel">Fechar Quinzena</div>
+    <button class="btn" onclick="logoutEverywhere()">Sair</button>
+  </div>
+
+  <div id="sidebar-container"></div>
+
+  <main class="main">
+    <div class="header-right">
+      <button class="btn" onclick="logoutEverywhere()">Logout</button>
+    </div>
+
+    <h1>Fechar Quinzena</h1>
+    <div class="small">Aplica automaticamente as parcelas de empréstimo da quinzena ao salvar.</div>
+
+    <div class="card" style="margin-top:12px">
+      <div class="filter-bar" style="align-items:flex-end">
+        <div class="field" style="min-width:260px">
+          <div class="small">Colaborador</div>
+          <select class="input" id="fUser"></select>
+        </div>
+        <div class="field">
+          <div class="small">Quinzena</div>
+          <select class="input" id="fQuinzena">
+            <option value="1">01–15</option>
+            <option value="2">16–fim</option>
+          </select>
+        </div>
+        <div class="field">
+          <div class="small">Mês</div>
+          <select class="input" id="fMes"></select>
+        </div>
+        <div class="field">
+          <div class="small">Ano</div>
+          <select class="input" id="fAno"></select>
+        </div>
+        <div class="field" style="flex:1;min-width:220px">
+          <div class="small">Diária/Fixo (R$)</div>
+          <input class="input" id="vDiaria" placeholder="ex: 30,00">
+        </div>
+        <div class="field" style="flex:1;min-width:220px">
+          <div class="small">Valor por entrega (R$)</div>
+          <input class="input" id="vEntrega" placeholder="ex: 1,40">
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-secondary" id="btnPreview">Prévia</button>
+          <button class="btn" id="btnSalvar">Salvar fechamento</button>
+        </div>
+      </div>
+      <div class="small" id="msg" style="margin-top:10px;opacity:.9"></div>
+    </div>
+
+    <div class="top-cards" style="margin-top:12px" id="kpis">
+      <div class="top-card"><div class="small">Entregas (período)</div><div class="kpi-value" id="kEnt">0</div></div>
+      <div class="top-card"><div class="small">Total bruto (R$)</div><div class="kpi-value" id="kBruto">R$ 0,00</div></div>
+      <div class="top-card"><div class="small">Desconto empréstimo (R$)</div><div class="kpi-value" id="kEmp">R$ 0,00</div></div>
+      <div class="top-card"><div class="small">Líquido (R$)</div><div class="kpi-value" id="kLiq">R$ 0,00</div></div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <div class="row" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div>
+          <h2 style="margin:0">Parcelas da quinzena</h2>
+          <div class="small">Geradas automaticamente ao aprovar o empréstimo</div>
+        </div>
+      </div>
+      <div id="parcelasBox" style="margin-top:12px"></div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <div class="row" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div>
+          <h2 style="margin:0">Diário (data × quantidade)</h2>
+          <div class="small">Cole aqui do Excel: DATA<TAB>QUANTIDADE</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-secondary" id="btnLimpar">Limpar</button>
+        </div>
+      </div>
+      <textarea class="input" id="txtDiario" style="height:140px;margin-top:10px" placeholder="01/12/2025\t179\n02/12/2025\t90\n..."></textarea>
+      <div class="small" style="margin-top:10px" id="diarioStatus"></div>
+    </div>
+
+  </main>
+
+  <script src="/admin/js/fechar_quinzena.js"></script>
+  <script>
+    // sidebar admin
+    fetch('/components/sidebar_admin_collapsible.html')
+      .then(r=>r.text()).then(h=>{ document.getElementById('sidebar-container').innerHTML=h; });
+    document.getElementById('btnMenu')?.addEventListener('click', ()=>{
+      document.getElementById('sidebar')?.classList.toggle('open');
+    });
+  </script>
+</body>
+</html>

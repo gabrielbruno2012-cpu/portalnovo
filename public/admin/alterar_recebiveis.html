@@ -1,0 +1,98 @@
+<html>
+<head>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<script>
+const uStr = localStorage.getItem("usuario");
+let u = null;
+try { u = uStr ? JSON.parse(uStr) : null; } catch(e){ u = null; }
+
+if (!u) {
+  window.location.href = "/";
+} else if (u.role !== "financeiro" && u.role !== "admin") {
+  window.location.href = "/colaborador/dashboard.html";
+}
+</script>
+
+
+<div id="sidebar"></div>
+
+<div class="main">
+ <div class="header-right"><button class="btn" onclick="logout()">Logout</button></div>
+ <h1>Alterar Recebíveis</h1>
+
+ <table class="table" id="lista"></table>
+</div>
+
+<script>
+fetch('/admin/sidebar_admin.html').then(r=>r.text()).then(h=>sidebar.innerHTML=h);
+function logout(){localStorage.clear();location="/";}
+function fmt(n){return "R$ "+Number(n||0).toLocaleString("pt-BR",{minimumFractionDigits:2});}
+
+async function load(){
+ let rec = await fetch('/api/recebiveis').then(r=>r.json());
+ rec = rec.filter(r=>r.status=="Pendente");
+
+ let html = `
+   <tr>
+     <th>ID</th>
+     <th>Usuário</th>
+     <th>Data</th>
+     <th>Valor</th>
+     <th>Tipo</th>
+     <th>Status</th>
+     <th>Ação</th>
+   </tr>
+ `;
+
+ rec.forEach(r=>{
+   html += `
+     <tr>
+       <td>${r.id}</td>
+       <td>${r.nome}</td>
+
+       <td><input type="date" class="input" id="data${r.id}" value="${r.data || ''}"></td>
+
+       <td><input type="number" class="input" step="0.01" id="valor${r.id}" value="${r.valor || ''}"></td>
+
+       <td><input class="input" id="tipo${r.id}" value="${r.tipo || ''}"></td>
+
+       <td>
+         <select id="s${r.id}" class="input">
+           <option ${r.status=='Pendente'?'selected':''}>Pendente</option>
+           <option ${r.status=='Pago'?'selected':''}>Pago</option>
+         </select>
+       </td>
+
+       <td>
+         <button class="btn" onclick="save(${r.id})">Salvar</button>
+       </td>
+     </tr>
+   `;
+ });
+
+ lista.innerHTML = html;
+}
+
+async function save(id){
+ let data  = document.getElementById("data"+id).value;
+ let valor = document.getElementById("valor"+id).value;
+ let tipo  = document.getElementById("tipo"+id).value;
+ let st    = document.getElementById("s"+id).value;
+
+ await fetch("/api/recebiveis/"+id,{
+   method:"PUT",
+   headers:{"Content-Type":"application/json"},
+   body: JSON.stringify({ data, valor, tipo, status: st })
+ });
+
+ alert("Atualizado!");
+ load();
+}
+
+load();
+</script>
+
+</body>
+</html>

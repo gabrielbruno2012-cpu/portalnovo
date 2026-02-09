@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Lançar Recebível - CoelhoLog</title>
+<link rel="stylesheet" href="/css/style.css">
+<style>
+
+body {
+    margin: 0;
+    display: flex;
+    font-family: 'Segoe UI', sans-serif;
+    background: #062447;
+    color: white;
+}
+
+/* ===== TOPBAR ===== */
+.topbar {
+    width: 100%;
+    height: 65px;
+    background: #002855;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 25px;
+    box-sizing: border-box;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 20;
+}
+
+.topbar img {
+    height: 42px;
+}
+
+.btn-logout {
+    background: #f7c600;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+/* ===== SIDEBAR (já vem do arquivo sidebar_admin.html) ===== */
+#sidebar {
+    width: 240px;
+    background: #032040;
+    height: 100vh;
+    position: fixed;
+    top: 65px;
+    left: 0;
+    overflow-y: auto;
+}
+
+/* ===== ÁREA PRINCIPAL ===== */
+.main {
+    margin-left: 240px;
+    width: calc(100% - 240px);
+    padding: 100px 40px 40px 40px;
+}
+
+/* ===== TÍTULO ===== */
+h1 {
+    margin: 0 0 20px 0;
+    font-size: 26px;
+    font-weight: 700;
+}
+
+/* ===== CARD ===== */
+.card {
+    background: #ffffff18;
+    backdrop-filter: blur(6px);
+    border-radius: 12px;
+    padding: 30px;
+    max-width: 550px;
+}
+
+.input {
+    width: 100%;
+    padding: 12px 15px;
+    margin-bottom: 18px;
+    border-radius: 6px;
+    border: 1px solid #ffffff55;
+    background: #ffffff15;
+    color: white;
+    font-size: 15px;
+}
+
+.input::placeholder {
+    color: #ccc;
+}
+
+.btn {
+    background: #f7c600;
+    border: none;
+    padding: 12px 18px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 15px;
+}
+
+#msg {
+    margin-top: 12px;
+    font-weight: 600;
+    color: #00ffae;
+}
+
+</style>
+</head>
+
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+    <img src="/img/logo.png">
+    <button class="btn-logout" onclick="logout()">Logout</button>
+</div>
+
+<!-- SIDEBAR -->
+<div id="sidebar"></div>
+
+<!-- MAIN -->
+<div class="main">
+    <h1>Lançar Recebível</h1>
+
+    <div class="card">
+        <label>Colaborador</label>
+        <select class="input" id="uid"></select>
+
+        <label>Valor</label>
+        <input class="input" id="valor" placeholder="Valor" type="number" step="0.01">
+
+        <label>Data</label>
+        <input class="input" id="data" type="date">
+
+        <button class="btn" onclick="lancar()">Lançar</button>
+        <div id="msg"></div>
+    </div>
+</div>
+
+<script>
+// ===== PROTEÇÃO =====
+const uStr = localStorage.getItem("usuario");
+let u = null;
+try { u = uStr ? JSON.parse(uStr) : null; } catch (e) { u = null; }
+
+if (!u) {
+    window.location.href = "/";
+} else if (u.role !== "financeiro" && u.role !== "admin") {
+    window.location.href = "/colaborador/dashboard.html";
+}
+
+// ===== SIDEBAR =====
+fetch('/admin/sidebar_admin.html')
+    .then(r => r.text())
+    .then(h => sidebar.innerHTML = h);
+
+// ===== LOGOUT =====
+function logout() {
+    localStorage.clear();
+    location = "/";
+}
+
+// ===== LOAD USERS =====
+async function loadUsers() {
+    let users = await fetch('/api/usuarios').then(r => r.json());
+    uid.innerHTML = users.map(x => `
+        <option value="${x.id}">${x.nome}</option>
+    `).join('');
+}
+loadUsers();
+
+// ===== LANÇAR RECEBÍVEL =====
+async function lancar() {
+    let body = {
+        usuario_id: uid.value,
+        valor: valor.value,
+        data: data.value,
+        tipo: "Admin",
+        status: "Pendente"
+    };
+
+    await fetch("/api/recebiveis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+    });
+
+    msg.innerText = "Lançado!";
+}
+</script>
+
+</body>
+</html>
