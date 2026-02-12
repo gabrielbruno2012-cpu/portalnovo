@@ -169,6 +169,54 @@ app.get('/api/emprestimos', (req, res) => {
     });
 });
 
+
+
+// ======================================
+// EMPRÉSTIMOS - PENDENTE (PARCELAS)
+// ======================================
+app.get('/api/emprestimos/pendente', (req, res) => {
+    const usuario_id = Number(req.query.usuario_id || 0);
+    if (!usuario_id) return res.status(400).json({ error: 'usuario_id' });
+
+    db.get(
+        `SELECT id, usuario_id, valor, parcelamentos, status, COALESCE(parcelas_pagas, 0) AS parcelas_pagas
+         FROM emprestimos
+         WHERE usuario_id = ? AND status = 'Aprovado'
+         ORDER BY id DESC
+         LIMIT 1`,
+        [usuario_id],
+        (err, emp) => {
+            if (err) return res.status(500).json({ error: 'db' });
+            if (!emp) return res.json({ tem: false });
+
+            const totalParcelas = Number(emp.parcelamentos || 0);
+            const pagas = Number(emp.parcelas_pagas || 0);
+            if (!totalParcelas || pagas >= totalParcelas) {
+                return res.json({ tem: false });
+            }
+
+            const proxima = pagas + 1;
+
+            let valorParcela = Number((Number(emp.valor) / totalParcelas).toFixed(2));
+            if (proxima === totalParcelas) {
+                const jaPago = Number((valorParcela * (totalParcelas - 1)).toFixed(2));
+                valorParcela = Number((Number(emp.valor) - jaPago).toFixed(2));
+            }
+
+            return res.json({
+                tem: true,
+                emprestimo_id: emp.id,
+                valor_total: Number(emp.valor),
+                parcelamentos: totalParcelas,
+                parcelas_pagas: pagas,
+                proxima_parcela: proxima,
+                valor_parcela: valorParcela,
+                rotulo: `EMPRÉSTIMO ${proxima}/${totalParcelas}`
+            });
+        }
+    );
+});
+
 app.post('/api/emprestimos', (req, res) => {
     const { usuario_id, valor, parcelamentos } = req.body;
 
@@ -199,16 +247,22 @@ app.put('/api/emprestimos/:id', (req, res) => {
     const { status, valor, parcelamentos } = req.body;
     const id = req.params.id;
 
-    db.run(
-        `UPDATE emprestimos 
-         SET status = ?, valor = ?, parcelamentos = ?
-         WHERE id = ?`,
-        [status, valor, parcelamentos, id],
-        function (err) {
-            if (err) return res.status(500).json({ error: 'db' });
-            res.json({ ok: true });
-        }
-    );
+    const isAprovado = String(status || '').toLowerCase() === 'aprovado';
+
+    const sql = isAprovado
+        ? `UPDATE emprestimos
+           SET status = ?, valor = ?, parcelamentos = ?, parcelas_pagas = 0, atualizado_em = CURRENT_TIMESTAMP
+           WHERE id = ?`
+        : `UPDATE emprestimos
+           SET status = ?, valor = ?, parcelamentos = ?, atualizado_em = CURRENT_TIMESTAMP
+           WHERE id = ?`;
+
+    const params = [status, valor, parcelamentos, id];
+
+    db.run(sql, params, function (err) {
+        if (err) return res.status(500).json({ error: 'db' });
+        res.json({ ok: true });
+    });
 });
 
 // ======================================
@@ -341,56 +395,131 @@ app.post('/api/producao', (req, res) => {
         valor_bobina,
         fixo_diaria,
         desconto,
-        total_calculado,
-        obs
+        obs,
+        aplicar_desconto_emprestimo
     } = req.body;
 
     if (!usuario_id || !data) {
-        return res.status(400).json({ error: "missing_params" });
+        return res.status(400).json({ error: 'missing_params' });
     }
 
-    const sql = `
-        INSERT INTO producao_colaborador (
-            usuario_id,
-            data,
-            entregas,
-            valor_por_entrega,
-            producao_fs,
-            valor_fs,
-            producao_bobina,
-            valor_bobina,
-            fixo_diaria,
-            desconto,
-            total_calculado,
-            obs,
-            criado_em
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-    `;
+    const n = (v) => Number(v || 0);
+    const entregasN = n(entregas);
+    const valorEntrega = n(valor_por_entrega);
+    const fsQtd = n(producao_fs);
+    const fsVal = n(valor_fs);
+    const bobQtd = n(producao_bobina);
+    const bobVal = n(valor_bobina);
+    const fixo = n(fixo_diaria);
 
-    const params = [
-        usuario_id,
-        data,
-        entregas,
-        valor_por_entrega,
-        producao_fs,
-        valor_fs,
-        producao_bobina,
-        valor_bobina,
-        fixo_diaria,
-        desconto,
-        total_calculado,
-        obs || ""
-    ];
+    const entregasNormais = Math.max(0, entregasN - (fsQtd + bobQtd));
+    const totalBruto = Number((entregasNormais * valorEntrega + fsQtd * fsVal + bobQtd * bobVal + fixo).toFixed(2));
 
-    db.run(sql, params, function (err) {
-        if (err) {
-            console.log("Erro INSERT produção:", err);
-            return res.status(500).json({ error: "db" });
+    const aplicar = String(aplicar_desconto_emprestimo).toLowerCase() === 'true' || aplicar_desconto_emprestimo === true;
+
+    function inserirProducao(descontoFinal, totalFinal, callback) {
+        const sql = `
+            INSERT INTO producao_colaborador (
+                usuario_id, data, entregas, valor_por_entrega,
+                producao_fs, valor_fs, producao_bobina, valor_bobina,
+                fixo_diaria, desconto, total_calculado, obs, criado_em
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        `;
+
+        const params = [
+            usuario_id, data, entregasN, valorEntrega,
+            fsQtd, fsVal, bobQtd, bobVal,
+            fixo, descontoFinal, totalFinal, obs || ''
+        ];
+
+        db.run(sql, params, function (err) {
+            if (err) return callback(err);
+            callback(null, this.lastID);
+        });
+    }
+
+    const descontoManual = Number(n(desconto).toFixed(2));
+
+    if (!aplicar) {
+        const totalFinal = Number((totalBruto - descontoManual).toFixed(2));
+        return inserirProducao(descontoManual, totalFinal, (err, producaoId) => {
+            if (err) return res.status(500).json({ error: 'db' });
+            res.json({ ok: true, id: producaoId });
+        });
+    }
+
+    db.get(
+        `SELECT id, valor, parcelamentos, COALESCE(parcelas_pagas, 0) AS parcelas_pagas
+         FROM emprestimos
+         WHERE usuario_id = ? AND status = 'Aprovado'
+         ORDER BY id DESC
+         LIMIT 1`,
+        [usuario_id],
+        (err, emp) => {
+            if (err) return res.status(500).json({ error: 'db' });
+            if (!emp) return res.status(400).json({ error: 'sem_emprestimo_aprovado_pendente' });
+
+            const totalParcelas = Number(emp.parcelamentos || 0);
+            const pagas = Number(emp.parcelas_pagas || 0);
+
+            if (!totalParcelas || pagas >= totalParcelas) {
+                return res.status(400).json({ error: 'sem_emprestimo_aprovado_pendente' });
+            }
+
+            const proxima = pagas + 1;
+
+            let valorParcela = Number((Number(emp.valor) / totalParcelas).toFixed(2));
+            if (proxima === totalParcelas) {
+                const jaPago = Number((valorParcela * (totalParcelas - 1)).toFixed(2));
+                valorParcela = Number((Number(emp.valor) - jaPago).toFixed(2));
+            }
+
+            if (totalBruto < valorParcela) {
+                return res.status(400).json({
+                    error: 'producao_insuficiente_para_parcela',
+                    valor_parcela: valorParcela,
+                    total_bruto: totalBruto
+                });
+            }
+
+            const descontoFinal = Number((descontoManual + valorParcela).toFixed(2));
+            const totalFinal = Number((totalBruto - descontoFinal).toFixed(2));
+
+            inserirProducao(descontoFinal, totalFinal, (err2, producaoId) => {
+                if (err2) return res.status(500).json({ error: 'db' });
+
+                db.run(
+                    `INSERT INTO emprestimo_descontos
+                     (emprestimo_id, producao_id, usuario_id, parcela_numero, total_parcelas, valor_parcela)
+                     VALUES (?, ?, ?, ?, ?, ?)`,
+                    [emp.id, producaoId, usuario_id, proxima, totalParcelas, valorParcela],
+                    (err3) => {
+                        if (err3) return res.status(500).json({ error: 'db' });
+
+                        const quitou = proxima >= totalParcelas;
+                        const sqlUp = quitou
+                            ? `UPDATE emprestimos SET parcelas_pagas = ?, status = 'Quitado', atualizado_em = CURRENT_TIMESTAMP WHERE id = ?`
+                            : `UPDATE emprestimos SET parcelas_pagas = ?, atualizado_em = CURRENT_TIMESTAMP WHERE id = ?`;
+
+                        db.run(sqlUp, [proxima, emp.id], (err4) => {
+                            if (err4) return res.status(500).json({ error: 'db' });
+                            res.json({
+                                ok: true,
+                                id: producaoId,
+                                emprestimo: {
+                                    emprestimo_id: emp.id,
+                                    parcela: `${proxima}/${totalParcelas}`,
+                                    valor_parcela: valorParcela,
+                                    status: quitou ? 'Quitado' : 'Aprovado'
+                                }
+                            });
+                        });
+                    }
+                );
+            });
         }
-
-        res.json({ ok: true, id: this.lastID });
-    });
+    );
 });
 
 

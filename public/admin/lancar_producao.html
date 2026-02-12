@@ -204,6 +204,24 @@
           </div>
         </div>
 
+        <div class="row" id="emprestimoBox" style="display:none; align-items:flex-end;">
+          <div class="col">
+            <label>Empréstimo</label>
+            <div class="input" style="display:flex; flex-direction:column; gap:6px;">
+              <div id="emprestimoInfo" style="font-weight:700;">—</div>
+              <div style="font-size:12px; opacity:.85;">Se marcar “Sim”, o sistema aplica a próxima parcela automaticamente.</div>
+            </div>
+          </div>
+          <div class="col">
+            <label>Aplicar desconto do empréstimo nesta produção</label>
+            <select class="input" id="aplicar_emprestimo">
+              <option value="nao">Não</option>
+              <option value="sim">Sim (descontar próxima parcela)</option>
+            </select>
+          </div>
+        </div>
+
+
         <label>Observações</label>
         <textarea class="input" id="obs" placeholder="Observações (opcional)" rows="3"></textarea>
 
@@ -256,6 +274,75 @@
       }
     }
     loadUsers();
+
+
+    // ===== EMPRÉSTIMO (desconto automático por parcela) =====
+    const emprestimoBox = document.getElementById('emprestimoBox');
+    const emprestimoInfo = document.getElementById('emprestimoInfo');
+    const aplicarEmprestimoSelect = document.getElementById('aplicar_emprestimo');
+
+    let emprestimoAtual = null; // { valor_parcela, rotulo, ... }
+
+    async function carregarEmprestimoPendente() {
+      emprestimoAtual = null;
+      if (!colaborador || !colaborador.value) {
+        if (emprestimoBox) emprestimoBox.style.display = 'none';
+        if (aplicarEmprestimoSelect) aplicarEmprestimoSelect.value = 'nao';
+        return;
+      }
+
+      try {
+        const usuarioId = Number(colaborador.value || 0);
+        const resp = await fetch(`/api/emprestimos/pendente?usuario_id=${usuarioId}`);
+        const data = await resp.json();
+
+        if (data && data.tem) {
+          emprestimoAtual = data;
+          if (emprestimoBox) emprestimoBox.style.display = 'flex';
+          if (emprestimoInfo) {
+            emprestimoInfo.textContent = `${data.rotulo} — Parcela: R$ ${Number(data.valor_parcela).toFixed(2)}`;
+          }
+        } else {
+          if (emprestimoBox) emprestimoBox.style.display = 'none';
+          if (aplicarEmprestimoSelect) aplicarEmprestimoSelect.value = 'nao';
+        }
+
+      } catch (e) {
+        console.error('Erro ao carregar empréstimo pendente', e);
+        if (emprestimoBox) emprestimoBox.style.display = 'none';
+        if (aplicarEmprestimoSelect) aplicarEmprestimoSelect.value = 'nao';
+      }
+    }
+
+    // quando troca colaborador
+    if (colaborador) {
+      colaborador.addEventListener('change', async () => {
+        await carregarEmprestimoPendente();
+        // se o admin já deixou marcado "sim", recalcula desconto
+        if (aplicarEmprestimoSelect && aplicarEmprestimoSelect.value === 'sim' && emprestimoAtual) {
+          descontoInput.value = Number(emprestimoAtual.valor_parcela || 0).toFixed(2);
+          calcularTotal();
+        }
+      });
+    }
+
+    // quando admin escolhe aplicar ou não
+    if (aplicarEmprestimoSelect) {
+      aplicarEmprestimoSelect.addEventListener('change', () => {
+        if (aplicarEmprestimoSelect.value === 'sim') {
+          if (!emprestimoAtual) {
+            // não tem empréstimo aprovado pendente
+            aplicarEmprestimoSelect.value = 'nao';
+            alert('Este colaborador não possui empréstimo aprovado pendente.');
+            return;
+          }
+          // desconto automático = valor integral da parcela
+          descontoInput.value = Number(emprestimoAtual.valor_parcela || 0).toFixed(2);
+        }
+        calcularTotal();
+      });
+    }
+
 
     // ===== FUNÇÕES DE CÁLCULO =====
     const entregasInput = document.getElementById("entregas");
@@ -365,7 +452,8 @@
         fixo_diaria: valores.fixo,
         desconto: valores.desconto,
         total_calculado: valores.total,
-        obs: obsInput ? obsInput.value : ""
+        obs: obsInput ? obsInput.value : "",
+        aplicar_desconto_emprestimo: (aplicarEmprestimoSelect && aplicarEmprestimoSelect.value === "sim")
       };
 
       try {
