@@ -135,6 +135,21 @@ tbody tr:nth-child(even) {
     font-size: 13px;
     opacity: .8;
 }
+
+    .badge-emprestimo {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1.2;
+        margin-left: 6px;
+        background: rgba(255, 193, 7, 0.18);
+        border: 1px solid rgba(255, 193, 7, 0.55);
+        color: #ffc107;
+        white-space: nowrap;
+    }
+
 </style>
 </head>
 <body>
@@ -381,9 +396,8 @@ async function carregar() {
             <td>${bobQtd} × ${formatMoney(bobVal)}</td>
             <td>${formatMoney(fixo)}</td>
             <td>${formatMoney(desc)}</td>
-            <td>${(l.emprestimo_parcela_numero ? ("Parcela " + l.emprestimo_parcela_numero + "/" + l.emprestimo_total_parcelas + " - " + formatMoney(Number(l.emprestimo_valor_parcela||0))) : "—")}</td>
             <td>${formatMoney(totalDia)}</td>
-            <td>${l.obs || ""}</td>
+            <td>${(l.obs || "") + (l.emprestimo_parcela_numero ? ((l.obs ? " " : "") + (`<span class="badge-emprestimo">Empréstimo ${l.emprestimo_parcela_numero}/${l.emprestimo_total_parcelas}: ${formatMoney(Number(l.emprestimo_valor_parcela||0))}</span>`)) : "")}</td>
             <td>
                 <input type="file" accept="image/*,application/pdf" style="display:none" id="file_${l.id}">
                 ${
