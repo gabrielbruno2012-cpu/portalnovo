@@ -3,18 +3,8 @@ const path = require('path');
 const bodyParser = require('body-parser');
 const multer = require("multer");
 const sqlite3 = require('sqlite3').verbose();
-const cors = require('cors');
 
 const app = express();
-
-// CORS completo (para Base44 preview, PWA, mobile, etc.)
-app.use(cors({
-  origin: '*',
-  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
-  allowedHeaders: ['Content-Type','Authorization','api_key'],
-}));
-app.options('*', cors());
-
 
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, '../public')));
@@ -43,24 +33,6 @@ app.post('/api/login', (req, res) => {
         [email, password],
         (err, row) => {
             if (err) return res.status(500).json({ error: 'db' });
-
-// ======================================
-// COLABORADORES (somente role=colaborador)
-// ======================================
-app.get('/api/colaboradores', (req, res) => {
-  db.all(
-    `SELECT id, nome, email, telefone, cnpj, role
-     FROM usuarios
-     WHERE role = 'colaborador'
-     ORDER BY nome ASC`,
-    [],
-    (err, rows) => {
-      if (err) return res.status(500).json({ error: 'db' });
-      res.json(rows || []);
-    }
-  );
-});
-
             if (!row) return res.status(401).json({ error: 'invalid' });
             res.json(row);
         }
@@ -578,13 +550,9 @@ app.get('/api/producao/colaborador', (req, res) => {
             p.total_calculado,
             p.obs,
             p.nota,
-            p.nota_status,
-            ed.parcela_numero AS emprestimo_parcela_numero,
-            ed.total_parcelas AS emprestimo_total_parcelas,
-            ed.valor_parcela AS emprestimo_valor_parcela
+            p.nota_status
         FROM producao_colaborador p
         LEFT JOIN usuarios u ON u.id = p.usuario_id
-        LEFT JOIN emprestimo_descontos ed ON ed.producao_id = p.id
         WHERE p.usuario_id = ?
           AND strftime('%m', p.data) = ?
           AND strftime('%Y', p.data) = ?
