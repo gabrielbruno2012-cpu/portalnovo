@@ -320,7 +320,8 @@
         await carregarEmprestimoPendente();
         // se o admin já deixou marcado "sim", recalcula desconto
         if (aplicarEmprestimoSelect && aplicarEmprestimoSelect.value === 'sim' && emprestimoAtual) {
-          descontoInput.value = Number(emprestimoAtual.valor_parcela || 0).toFixed(2);
+          // Parcela do empréstimo será aplicada no BACKEND (evita duplicação).
+          // Não alteramos o campo Desconto (manual) aqui.
           calcularTotal();
         }
       });
@@ -336,8 +337,8 @@
             alert('Este colaborador não possui empréstimo aprovado pendente.');
             return;
           }
-          // desconto automático = valor integral da parcela
-          descontoInput.value = Number(emprestimoAtual.valor_parcela || 0).toFixed(2);
+          // Parcela do empréstimo será aplicada no BACKEND (evita duplicação).
+          // Campo Desconto (R$) fica apenas para desconto manual.
         }
         calcularTotal();
       });
