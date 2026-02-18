@@ -1,8 +1,22 @@
 <!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="/css/style.css"></head><body>
+  <div class="mobile-topbar">
+    <button class="btn btn-secondary" id="btnMenu">Menu</button>
+    <div class="small" id="periodLabel">CoelhoLog</div>
+    <button class="btn" onclick="logoutEverywhere()">Sair</button>
+  </div>
+
+
 <script>
 // Sync admin login -> collaborator login
 if (localStorage.getItem('usuario') && !localStorage.getItem('user')) {
     localStorage.setItem('user', localStorage.getItem('usuario'));
 }
 </script>
-<div id="sidebar-container"></div><main class="main"><h2>Solicitar Empréstimo</h2><div class="card"><label>Valor</label><input id="valor" class="input"/><label>Parcelas</label><select id="parcelas" class="input"><option>1</option><option>2</option></select><br/><br/><button class="btn" onclick="solicitar()">Solicitar</button><p id="msg" class="small"></p></div></main><script>fetch('/components/sidebar_colaborador.html').then(r=>r.text()).then(html=> document.getElementById('sidebar-container').innerHTML = html);async function solicitar(){const user=JSON.parse(localStorage.getItem('user')||'{}');if(!user.id){window.location='/';return;}const chk=await fetch('/api/emprestimos?user_id='+user.id);const rows=await chk.json();if(rows.find(r=>r.status==='Em análise' || r.status==='Aprovado')){document.getElementById('msg').innerText='Você já possui um empréstimo ativo.';return;}const valor=document.getElementById('valor').value;const parcelas=document.getElementById('parcelas').value;const res=await fetch('/api/emprestimos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({usuario_id:user.id,valor,parcelamentos:parcelas})});if(res.ok){document.getElementById('msg').innerText='Solicitação enviada';}else{document.getElementById('msg').innerText='Erro';}};</script></body></html>
+<div id="sidebar-container"></div><main class="main"><h2>Solicitar Empréstimo</h2><div class="card"><label>Valor</label><input id="valor" class="input"/><label>Parcelas</label><select id="parcelas" class="input"><option>1</option><option>2</option></select><br/><br/><button class="btn" onclick="solicitar()">Solicitar</button><p id="msg" class="small"></p></div></main><script>fetch('/components/sidebar_colaborador.html').then(r=>r.text()).then(html=> document.getElementById('sidebar-container').innerHTML = html);async function solicitar(){const user=JSON.parse(localStorage.getItem('user')||'{}');if(!user.id){window.location='/';return;}const chk=await fetch('/api/emprestimos?user_id='+user.id);const rows=await chk.json();if(rows.find(r=>r.status==='Em análise' || r.status==='Aprovado')){document.getElementById('msg').innerText='Você já possui um empréstimo ativo.';return;}const valor=document.getElementById('valor').value;const parcelas=document.getElementById('parcelas').value;const res=await fetch('/api/emprestimos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({usuario_id:user.id,valor,parcelamentos:parcelas})});if(res.ok){document.getElementById('msg').innerText='Solicitação enviada';}else{document.getElementById('msg').innerText='Erro';}};
+  // Toggle sidebar mobile
+  document.getElementById('btnMenu')?.addEventListener('click', () => {
+    const sb = document.getElementById('sidebar');
+    if (sb) sb.classList.toggle('open');
+  });
+
+</script></body></html>

@@ -153,6 +153,13 @@ tbody tr:nth-child(even) {
 </style>
 </head>
 <body>
+  <div class="mobile-topbar">
+    <button class="btn btn-secondary" id="btnMenu">Menu</button>
+    <div class="small" id="periodLabel">CoelhoLog</div>
+    <button class="btn" onclick="logoutEverywhere()">Sair</button>
+  </div>
+
+
 
 <div class="topbar">
     <img src="/img/logo.png">
@@ -448,6 +455,13 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 initFiltros();
 carregar();
+
+  // Toggle sidebar mobile
+  document.getElementById('btnMenu')?.addEventListener('click', () => {
+    const sb = document.getElementById('sidebar');
+    if (sb) sb.classList.toggle('open');
+  });
+
 </script>
 
 </body>

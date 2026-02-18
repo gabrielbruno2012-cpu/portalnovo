@@ -5,6 +5,13 @@
 <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
+  <div class="mobile-topbar">
+    <button class="btn btn-secondary" id="btnMenu">Menu</button>
+    <div class="small" id="periodLabel">CoelhoLog</div>
+    <button class="btn" onclick="logoutEverywhere()">Sair</button>
+  </div>
+
+
 
 <script>
 // Sync admin login -> collaborator login
@@ -107,6 +114,13 @@ async function load() {
 }
 
 document.addEventListener("DOMContentLoaded", load);
+
+  // Toggle sidebar mobile
+  document.getElementById('btnMenu')?.addEventListener('click', () => {
+    const sb = document.getElementById('sidebar');
+    if (sb) sb.classList.toggle('open');
+  });
+
 </script>
 
 </body>
