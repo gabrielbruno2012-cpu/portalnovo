@@ -163,7 +163,7 @@ tbody tr:nth-child(even) {
 
 <script>
     // Carregar sidebar
-    fetch('/components/sidebar.html')
+    fetch('/components/sidebar_colaborador.html')
         .then(r => r.text())
         .then(html => {
             document.getElementById('sidebar-container').innerHTML = html;
@@ -300,11 +300,19 @@ const cardDias     = document.getElementById("cardDias");
 const totalResumo  = document.getElementById("totalResumo");
 
 function initFiltros() {
-    const meses = [
-        "01 - Jan", "02 - Fev", "03 - Mar", "04 - Abr",
-        "05 - Mai", "06 - Jun", "07 - Jul", "08 - Ago",
-        "09 - Set", "10 - Out", "11 - Nov", "12 - Dez"
-    ];
+    const meses = (() => {
+  const out = [];
+  const d = new Date();
+  d.setDate(1);
+  for (let i = 0; i < 12; i++) {
+    const dd = new Date(d.getFullYear(), d.getMonth() - i, 1);
+    const mm = String(dd.getMonth() + 1).padStart(2, '0');
+    const yy = dd.getFullYear();
+    const label = mm + ' - ' + dd.toLocaleString('pt-BR', { month: 'short' }).replace('.', '') + ' / ' + yy;
+    out.push(label);
+  }
+  return out;
+})();
     mesSel.innerHTML = meses.map((m, idx) => {
         const mesNum = (idx + 1).toString().padStart(2, "0");
         const sel = (idx === new Date().getMonth()) ? "selected" : "";
@@ -432,6 +440,12 @@ async function carregar() {
 }
 
 // ===== INICIAR =====
+
+document.addEventListener("DOMContentLoaded", () => {
+  try { setMeses(); } catch(e){}
+  try { setAnos(); } catch(e){}
+  try { carregar(); } catch(e){}
+});
 initFiltros();
 carregar();
 </script>

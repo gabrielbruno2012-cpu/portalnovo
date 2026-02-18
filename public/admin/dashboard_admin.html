@@ -49,6 +49,7 @@
             <option value="all">Todos</option>
             <option value="recebivel">Recebível</option>
             <option value="producao">Produção</option>
+            <option value="emprestimo">Empréstimo</option>
           </select>
         </div>
         <div style="display:flex; gap:10px;">
@@ -131,7 +132,7 @@
       parts.push(`Status: ${map[filters.status] || filters.status}`);
     }
     if (filters.type && filters.type !== 'all') {
-      parts.push(`Tipo: ${filters.type === 'recebivel' ? 'Recebível' : 'Produção'}`);
+      const typeMap = {recebivel:'Recebível', producao:'Produção', emprestimo:'Empréstimo'}; parts.push(`Tipo: ${typeMap[filters.type] || filters.type}`);
     }
     return parts.length ? 'Filtros ativos: ' + parts.join(' · ') : 'Filtros ativos: nenhum';
   }
@@ -202,17 +203,55 @@
     buildMonthYearOptions(document.getElementById('fPeriod'));
 
     let recebiveis = [];
+    let producoes = [];
+    let emprestimos = [];
+
     try {
-      const r = await fetch('/api/recebiveis');
-      recebiveis = await r.json();
+      const [r1, r2, r3] = await Promise.all([
+        fetch('/api/recebiveis'),
+        fetch('/api/producao/admin'),
+        fetch('/api/emprestimos')
+      ]);
+      recebiveis = await r1.json();
+      producoes = await r2.json();
+      emprestimos = await r3.json();
     } catch (e) {
-      console.error('Erro ao carregar recebíveis:', e);
+      console.error('Erro ao carregar dados:', e);
     }
 
-    _rowsAll = (Array.isArray(recebiveis) ? recebiveis : []).map(r => ({
+    // Consolidar tudo em _rowsAll com tipo
+    const recRows = (Array.isArray(recebiveis) ? recebiveis : []).map(r => ({
       ...r,
-      tipo: r.tipo || 'Recebível'
+      tipo: 'Recebível',
+      data: r.data || '',
+      valor: Number(r.valor || 0),
+      status: r.status || 'Pendente',
+      nome: r.nome || ''
     }));
+
+    const prodRows = (Array.isArray(producoes) ? producoes : []).map(p => ({
+      id: p.id,
+      usuario_id: p.usuario_id,
+      nome: p.colaborador || '',
+      data: p.data || '',
+      valor: Number(p.total_calculado || 0),
+      tipo: 'Produção',
+      status: p.nota_status === 'aprovado' ? 'ok' : (p.nota_status === 'pendente' ? 'pendente' : 'processando'),
+      obs: p.obs || ''
+    }));
+
+    const empRows = (Array.isArray(emprestimos) ? emprestimos : []).map(e => ({
+      id: e.id,
+      usuario_id: e.usuario_id,
+      nome: e.nome || '',
+      data: e.criado_em || '',
+      valor: Number(e.valor || 0),
+      tipo: 'Empréstimo',
+      status: e.status === 'Aprovado' ? 'ok' : (e.status === 'Em análise' ? 'pendente' : 'negado'),
+      obs: `${e.parcelamentos || 0}x`
+    }));
+
+    _rowsAll = [...recRows, ...prodRows, ...empRows];
 
     document.getElementById('btnApply').addEventListener('click', applyAndRender);
     document.getElementById('btnClear').addEventListener('click', () => {
@@ -242,7 +281,7 @@
         status: r.status || ''
       }));
       const [y, m] = (filters.period || 'periodo').split('-');
-      downloadCSV(`admin_recebiveis_${y||''}${m||''}.csv`, safe);
+      downloadCSV(`admin_dashboard_${y||''}${m||''}.csv`, safe);
     });
 
     applyAndRender();

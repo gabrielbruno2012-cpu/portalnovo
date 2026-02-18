@@ -21,7 +21,7 @@ if (localStorage.getItem('usuario') && !localStorage.getItem('user')) {
 </main>
 
 <script>
-fetch('/components/sidebar.html')
+fetch('/components/sidebar_colaborador.html')
   .then(r => r.text())
   .then(html => document.getElementById('sidebar-container').innerHTML = html);
 

@@ -1,63 +1,49 @@
 <!-- SIDEBAR COLABORADOR RECOLHÍVEL -->
 <aside class="sidebar" id="sidebar">
-    <div class="logo-area">
-        <span class="menu-toggle" onclick="toggleSidebar()">☰</span>
-    </div>
+  <div class="logo-area">
+    <span class="menu-toggle" onclick="toggleSidebar()">☰</span>
+  </div>
 
-    <nav class="menu">
-        <a href="/colaborador/dashboard.html">
-            <span class="icon">🏠</span>
-            <span class="menu-text">Dashboard</span>
-        </a>
+  <nav class="menu">
+    <a href="/colaborador/dashboard.html"><span class="icon">🏠</span><span class="menu-text">Dashboard</span></a>
+    <a href="/colaborador/demonstrativo.html"><span class="icon">📊</span><span class="menu-text">Demonstrativo</span></a>
+    <a href="/colaborador/solicitar_emprestimo.html"><span class="icon">📝</span><span class="menu-text">Solicitar Empréstimo</span></a>
+    <a href="/colaborador/status_emprestimos.html"><span class="icon">📄</span><span class="menu-text">Status de Empréstimos</span></a>
+    <a href="/colaborador/incentivos.html"><span class="icon">🎯</span><span class="menu-text">Incentivos & Metas</span></a>
 
-        <a href="/colaborador/recebiveis.html">
-            <span class="icon">💰</span>
-            <span class="menu-text">Recebíveis</span>
-        </a>
-
-        <a href="/colaborador/producao.html">
-            <span class="icon">📦</span>
-            <span class="menu-text">Produção</span>
-        </a>
-
-        <a href="/colaborador/emprestimos.html">
-            <span class="icon">💳</span>
-            <span class="menu-text">Empréstimos</span>
-        </a>
-
-        <a href="/colaborador/incentivos.html">
-            <span class="icon">🎯</span>
-            <span class="menu-text">Incentivos & Metas</span>
-        </a>
-
-        <a href="#" onclick="logoutEverywhere()">
-            <span class="icon">🚪</span>
-            <span class="menu-text">Sair</span>
-        </a>
-    </nav>
+    <a href="#" onclick="logoutEverywhere()"><span class="icon">🚪</span><span class="menu-text">Sair</span></a>
+  </nav>
 </aside>
 
 <script>
+function logoutEverywhere() {
+  // Compat: versões antigas gravavam em 'user'
+  localStorage.removeItem('user');
+  // Versão atual do portal
+  localStorage.removeItem('usuario');
+  // ApiClient (se estiver sendo usado)
+  localStorage.removeItem('coelholog_user');
+  window.location.href = '/';
+}
+
 // Alternar sidebar recolhida
 function toggleSidebar() {
-    const sidebar = document.getElementById("sidebar");
-    const main = document.querySelector(".main");
+  const sidebar = document.getElementById('sidebar');
+  const main = document.querySelector('.main');
 
-    sidebar.classList.toggle("collapsed");
-    main.classList.toggle("collapsed");
+  sidebar.classList.toggle('collapsed');
+  if (main) main.classList.toggle('collapsed');
 
-    // Salvar estado do usuário
-    localStorage.setItem("sidebar_collapsed", sidebar.classList.contains("collapsed"));
+  localStorage.setItem('sidebar_collapsed', sidebar.classList.contains('collapsed'));
 }
 
 // Manter estado ao recarregar
-document.addEventListener("DOMContentLoaded", () => {
-    const collapsed = localStorage.getItem("sidebar_collapsed") === "true";
-
-    if (collapsed) {
-        document.getElementById("sidebar").classList.add("collapsed");
-        const main = document.querySelector(".main");
-        if (main) main.classList.add("collapsed");
-    }
+document.addEventListener('DOMContentLoaded', () => {
+  const collapsed = localStorage.getItem('sidebar_collapsed') === 'true';
+  if (collapsed) {
+    document.getElementById('sidebar').classList.add('collapsed');
+    const main = document.querySelector('.main');
+    if (main) main.classList.add('collapsed');
+  }
 });
 </script>

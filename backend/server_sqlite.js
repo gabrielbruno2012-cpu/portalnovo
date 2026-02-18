@@ -1155,18 +1155,33 @@ app.delete("/api/incentivos/pontos/excluir/:id", (req, res) => {
 app.get("/api/producao/admin", (req, res) => {
   const { mes, ano } = req.query;
 
-  db.all(`
+  let sql = `
     SELECT 
       p.*,
       u.nome AS colaborador
     FROM producao_colaborador p
     LEFT JOIN usuarios u ON u.id = p.usuario_id
-    WHERE strftime('%m', p.data) = ?
-      AND strftime('%Y', p.data) = ?
-    ORDER BY p.data DESC
-  `,
-  [mes, ano],
-  (err, rows) => {
+  `;
+
+  const params = [];
+  const conditions = [];
+
+  if (mes) {
+    conditions.push("strftime('%m', p.data) = ?");
+    params.push(mes);
+  }
+  if (ano) {
+    conditions.push("strftime('%Y', p.data) = ?");
+    params.push(ano);
+  }
+
+  if (conditions.length) {
+    sql += ' WHERE ' + conditions.join(' AND ');
+  }
+
+  sql += ' ORDER BY p.data DESC';
+
+  db.all(sql, params, (err, rows) => {
     if (err) return res.status(500).json({ error: "db" });
     res.json(rows);
   });
