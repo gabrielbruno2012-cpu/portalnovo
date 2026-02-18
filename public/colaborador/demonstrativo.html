@@ -2,6 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Demonstrativo de Produção - CoelhoLog</title>
 <link rel="stylesheet" href="/css/style.css">
 <style>
@@ -12,40 +13,7 @@ body {
     color: white;
 }
 
-/* TOPBAR */
-.topbar {
-    width: 100%;
-    height: 65px;
-    background: #002855;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 25px;
-    box-sizing: border-box;
-    position: fixed;
-    top: 0;
-    left: 0;
-    z-index: 20;
-}
-.topbar img {
-    height: 42px;
-}
-.btn-logout {
-    background: #f7c600;
-    border: none;
-    padding: 10px 22px;
-    border-radius: 6px;
-    font-weight: 600;
-    cursor: pointer;
-}
-    .btn-upload {
-    background: #f7c600;
-    border: none;
-    padding: 10px 22px;
-    border-radius: 6px;
-    font-weight: 600;
-    cursor: pointer;
-}
+/* Topbar antiga removida - usando mobile-topbar do CSS global */
 
 /* Layout: usando CSS global de /css/style.css */
 
@@ -157,11 +125,8 @@ tbody tr:nth-child(even) {
 
 
 
-<div class="topbar">
-    <img src="/img/logo.png">
-    <button class="btn-logout" onclick="logout()">Logout</button>
-</div>
-<!-- SIDEBAR DO COLABORADOR -->
+
+
 <div id="sidebar-container"></div>
 
 <script>
@@ -171,8 +136,9 @@ tbody tr:nth-child(even) {
         .then(html => {
             document.getElementById('sidebar-container').innerHTML = html;
 
-            // Ajuste do layout: empurrar conteúdo para o lado
-            document.querySelector('.main').style.marginLeft = "240px";
+            // Layout responsivo gerenciado pelo CSS global /css/style.css
+            // Desktop (>768px): .main {margin-left: 240px;}
+            // Mobile (≤768px): .main {margin-left: 0;}
         });
 </script>
     
