@@ -97,3 +97,26 @@ body{margin:0;background:linear-gradient(180deg,#021835,#062642);color:var(--tex
 
 
 /* (mantido: regras antigas removidas e consolidadas acima) */
+
+/* Logo na topbar mobile - centralizado e responsivo */
+.mobile-topbar #periodLabel {
+  flex: 1;
+  display: flex !important;
+  justify-content: center;
+  align-items: center;
+}
+
+.mobile-topbar #periodLabel img {
+  height: 28px;
+  width: auto;
+  max-width: 150px;
+  object-fit: contain;
+}
+
+@media (max-width: 480px) {
+  .mobile-topbar #periodLabel img {
+    height: 24px;
+    max-width: 120px;
+  }
+}
+

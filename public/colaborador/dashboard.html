@@ -21,7 +21,7 @@
 
   <div class="mobile-topbar">
     <button class="btn btn-secondary" id="btnMenu">Menu</button>
-    <div class="small" id="periodLabel">—</div>
+    <div id="periodLabel" style="display: flex; align-items: center;"><img src="/img/logo.png" alt="CoelhoLog" style="height: 28px; width: auto;"></div>
     <button class="btn" onclick="logoutEverywhere()">Sair</button>
   </div>
 
@@ -151,7 +151,6 @@
     document.getElementById('activeFilters').textContent = buildActiveFiltersText(filters);
 
     const [y, m] = String(filters.period || '').split('-');
-    document.getElementById('periodLabel').textContent = (y && m) ? `${monthLabel(m)}/${y}` : '—';
 
     const filtered = rowsApplyFilters(_rowsAll, filters);
 
